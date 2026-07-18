@@ -29,8 +29,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleDisplayName</key>         <string>RAMble</string>
     <key>CFBundlePackageType</key>         <string>APPL</string>
     <key>CFBundleIconFile</key>            <string>RAMble</string>
-    <key>CFBundleShortVersionString</key>  <string>1.2.0</string>
-    <key>CFBundleVersion</key>             <string>3</string>
+    <key>CFBundleShortVersionString</key>  <string>1.3.0</string>
+    <key>CFBundleVersion</key>             <string>4</string>
     <key>LSMinimumSystemVersion</key>      <string>15.0</string>
     <key>LSUIElement</key>                 <true/>
     <key>NSHighResolutionCapable</key>     <true/>

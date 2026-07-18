@@ -40,6 +40,7 @@ public final class PluginRegistry {
     private var factories: [(name: String, make: () -> AnimationPlugin)] = []
 
     private init() {
+        register(name: "Synapse") { SynapsePlugin() }
         register(name: "Plinko") { PlinkoPlugin() }
         register(name: "Galaxy") { GalaxyPlugin() }
         register(name: "Water Tank") { WaterTankPlugin() }

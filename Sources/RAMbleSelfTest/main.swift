@@ -114,7 +114,7 @@ do {
 
 print("Plugins")
 do {
-    let builtIn = ["Plinko", "Galaxy", "Water Tank", "Motherboard", "Factory"]
+    let builtIn = ["Synapse", "Plinko", "Galaxy", "Water Tank", "Motherboard", "Factory"]
     expect(Set(PluginRegistry.shared.availableNames).isSuperset(of: builtIn),
            "registry lists all built-in plugins")
     for name in builtIn {
@@ -155,6 +155,28 @@ do {
     PluginRegistry.shared.register(name: "Null") { NullPlugin() }
     expect(PluginRegistry.shared.makePlugin(named: "Null") != nil,
            "custom plugin registration works")
+}
+
+// MARK: - Synapse graph
+
+print("Synapse")
+do {
+    let synapse = SynapsePlugin()
+    synapse.prepare(bounds: SIMD2(1440, 900), theme: Themes.glass)
+    let built = synapse.testCounts
+    expect(built.nodes > 40, "graph builds a healthy node population (\(built.nodes))")
+    expect(built.edges > built.nodes, "graph is well connected (\(built.edges) edges)")
+
+    var inferring = SystemState()
+    inferring.cpuPercent = 0.5
+    inferring.inferenceRunning = true
+    inferring.tokensPerSecond = 60
+    for _ in 0..<120 { synapse.update(state: inferring, deltaTime: 1.0 / 60.0) }
+    expect(synapse.testCounts.signals > 0, "signals fire during inference")
+
+    let idle = SystemState()
+    for _ in 0..<(60 * 20) { synapse.update(state: idle, deltaTime: 1.0 / 60.0) }
+    expect(synapse.testCounts.signals < 900, "signal population stays bounded")
 }
 
 // MARK: - Update version compare

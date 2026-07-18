@@ -76,7 +76,7 @@ public final class SettingsStore: ObservableObject {
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        animationName = defaults.string(forKey: "animationName") ?? "Galaxy"
+        animationName = defaults.string(forKey: "animationName") ?? "Synapse"
         themeName = defaults.string(forKey: "themeName") ?? "Glass"
         opacity = defaults.object(forKey: "opacity") as? Double ?? 0.85
         scale = defaults.object(forKey: "scale") as? Double ?? 1.0
