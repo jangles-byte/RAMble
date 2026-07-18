@@ -36,6 +36,13 @@ struct SettingsView: View {
             Picker("Theme", selection: $settings.themeName) {
                 ForEach(Themes.all) { Text($0.name).tag($0.name) }
             }
+            Slider(value: $settings.intensity, in: 0.2...2.5) {
+                Text("Intensity")
+            } minimumValueLabel: { Image(systemName: "tortoise") }
+              maximumValueLabel: { Image(systemName: "hare") }
+            Text("How busy the animation is — slow drip on the left, full chaos on the right. System load still layers on top.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Slider(value: $settings.opacity, in: 0.1...1.0) {
                 Text("Opacity")
             } minimumValueLabel: { Image(systemName: "circle.dotted") }

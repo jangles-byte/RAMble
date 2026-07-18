@@ -48,6 +48,9 @@ public struct SystemState: Equatable, Sendable {
 
     // Composite
     public var stress: Float = 0              // 0…1, see StressEngine
+    /// User preference, not a measurement: global activity multiplier
+    /// (0.2 = slow drip … 2.5 = busy screen). Injected by the overlay layer.
+    public var intensity: Float = 1
 
     public init() {}
 }

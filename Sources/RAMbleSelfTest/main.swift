@@ -195,6 +195,21 @@ do {
     for _ in 0..<(60 * 30) { plinko.update(state: calm, deltaTime: 1.0 / 60.0) }
     expect(plinko.testBallPositions.count < positions.count,
            "settled balls fade away instead of piling up")
+
+    // Regression: under sustained stress, jitter used to keep floor balls
+    // from ever settling — the cap filled and spawning froze. The stream
+    // must keep flowing indefinitely.
+    var stressed = SystemState()
+    stressed.ramPercent = 0.85
+    stressed.memoryPressure = 0.7
+    stressed.stress = 0.8
+    for _ in 0..<(60 * 90) {
+        plinko.update(state: stressed, deltaTime: 1.0 / 60.0)
+    }
+    let finalPositions = plinko.testBallPositions
+    expect(finalPositions.count < 900, "population never pins at the hard cap")
+    expect(finalPositions.contains { $0.y > wMin.y + 100 },
+           "fresh balls are still falling after 90s of stress")
 }
 
 // MARK: - Live monitors (smoke)

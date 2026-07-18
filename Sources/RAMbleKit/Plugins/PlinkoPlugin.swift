@@ -80,13 +80,20 @@ public final class PlinkoPlugin: AnimationPlugin {
         if state.modelJustLoaded { pegPulse = 1 }
         for i in pegHeat.indices { pegHeat[i] = max(0, pegHeat[i] - dt * 3.5) }
 
-        // Spawn rate follows RAM usage; inference adds a steady token drizzle.
-        let targetPopulation = Float(maxBalls) * (0.12 + state.ramPercent * 0.88)
+        // Spawn: a steady drip that tracks RAM usage and the intensity
+        // setting. The population target is what despawn drains against, so
+        // flow stays continuous — never dump-everything-then-starve.
+        let intensity = max(state.intensity, 0.05)
+        let targetPopulation = min(Float(maxBalls),
+            Float(maxBalls) * (0.10 + state.ramPercent * 0.70) * intensity)
         let deficit = max(0, targetPopulation - Float(balls.count))
-        var spawnRate = deficit * 0.6 + state.ramPercent * 30
-        if state.inferenceRunning { spawnRate += min(state.tokensPerSecond, 60) }
+        var spawnRate = min(deficit * 0.25, 40 * intensity)
+            + (3 + state.ramPercent * 20) * intensity
+        if state.inferenceRunning {
+            spawnRate += min(state.tokensPerSecond, 60) * 0.5 * intensity
+        }
         spawnAccumulator += spawnRate * dt
-        while spawnAccumulator >= 1, balls.count < maxBalls {
+        while spawnAccumulator >= 1, Float(balls.count) < targetPopulation {
             spawnAccumulator -= 1
             spawnBall(swapActive: state.swapPercent > 0.05)
         }
@@ -97,12 +104,16 @@ public final class PlinkoPlugin: AnimationPlugin {
         let congestion = state.memoryPressure
         let stress = state.stress
         let gravity: Float = -bounds.y * (0.55 + stress * 0.6)
-        let jitter: Float = stress * 180 + congestion * 120
+        let jitter: Float = (stress * 180 + congestion * 120) * min(intensity, 1.5)
 
         for i in balls.indices {
             var b = balls[i]
+            // Balls resting on the screen floor are exempt from jitter —
+            // otherwise agitation resets their settle timer and they never
+            // fade, clogging the population cap so spawning stops.
+            let onFloor = b.position.y <= worldMin.y + b.radius + 1
             b.velocity.y += gravity * dt
-            if jitter > 1 {
+            if jitter > 1, !onFloor {
                 b.velocity += SIMD2(randomFloat(-jitter...jitter),
                                     randomFloat(-jitter...jitter)) * dt * 8
             }
@@ -144,8 +155,14 @@ public final class PlinkoPlugin: AnimationPlugin {
                 b.velocity.x *= 0.94                       // rolling friction
             }
 
-            // Jam detection: slow-moving balls under pressure stack up.
-            if simd_length_squared(b.velocity) < 200 { b.settled += dt } else { b.settled = 0 }
+            // Jam/settle detection: floor-resting balls always accrue settle
+            // time (so they reliably fade); elsewhere it's velocity-based.
+            let resting = b.position.y <= worldMin.y + b.radius + 1
+            if resting || simd_length_squared(b.velocity) < 200 {
+                b.settled += dt
+            } else {
+                b.settled = 0
+            }
             balls[i] = b
         }
 

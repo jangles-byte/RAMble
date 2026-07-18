@@ -19,6 +19,10 @@ public final class SettingsStore: ObservableObject {
     @Published public var scale: Double {
         didSet { defaults.set(scale, forKey: "scale") }
     }
+    /// Activity multiplier: 0.2 (slow drip) … 2.5 (busy screen).
+    @Published public var intensity: Double {
+        didSet { defaults.set(intensity, forKey: "intensity") }
+    }
     @Published public var fpsLimit: Int {
         didSet { defaults.set(fpsLimit, forKey: "fpsLimit") }
     }
@@ -76,6 +80,7 @@ public final class SettingsStore: ObservableObject {
         themeName = defaults.string(forKey: "themeName") ?? "Glass"
         opacity = defaults.object(forKey: "opacity") as? Double ?? 0.85
         scale = defaults.object(forKey: "scale") as? Double ?? 1.0
+        intensity = defaults.object(forKey: "intensity") as? Double ?? 1.0
         fpsLimit = defaults.object(forKey: "fpsLimit") as? Int ?? 60
         overlayEnabled = defaults.object(forKey: "overlayEnabled") as? Bool ?? true
         enabledDisplayIDs = (defaults.array(forKey: "enabledDisplayIDs") as? [Int])?

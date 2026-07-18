@@ -126,8 +126,8 @@ public final class MotherboardPlugin: AnimationPlugin {
 
         // Traffic follows RAM churn + CPU; swap opens the RAM→disk routes.
         // Stress floods the board with traffic — jams form from sheer volume.
-        var rate = 4 + state.ramPercent * 30 + state.cpuPercent * 25
-            + state.stress * 60
+        var rate = (4 + state.ramPercent * 30 + state.cpuPercent * 25
+            + state.stress * 60) * state.intensity
         if state.inferenceRunning { rate += min(state.tokensPerSecond, 80) * 0.5 }
         spawnAccumulator += rate * dt
         while spawnAccumulator >= 1, packets.count < maxPackets {
@@ -147,7 +147,7 @@ public final class MotherboardPlugin: AnimationPlugin {
         // Moving packets SPEED UP under stress — the board looks frantic, not
         // sluggish. Packets keep a minimum headway; blocked ones stall and
         // back up down the trace (congestion = angry queues, not slow motion).
-        let bandwidth = 1 + state.stress * 2.2
+        let bandwidth = (1 + state.stress * 2.2) * max(state.intensity, 0.05)
         let headway: Float = 9
 
         // Sort per trace by distance so each packet only checks its leader.

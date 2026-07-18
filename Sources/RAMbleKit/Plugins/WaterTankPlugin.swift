@@ -68,8 +68,8 @@ public final class WaterTankPlugin: AnimationPlugin {
 
         // --- 1D wave simulation on the surface (spring + neighbor coupling) ---
         // Stress whips the surface into a storm: more kicks, harder kicks.
-        let agitation = min(1, state.memoryPressure * 0.5 + state.cpuPercent * 0.2
-                               + state.stress * 0.8)
+        let agitation = min(1, (state.memoryPressure * 0.5 + state.cpuPercent * 0.2
+                               + state.stress * 0.8 + 0.03) * state.intensity)
         let stiffness: Float = 40
         let dampen: Float = 1 - min(0.985, 0.9 + (1 - agitation) * 0.08)
 
@@ -138,7 +138,8 @@ public final class WaterTankPlugin: AnimationPlugin {
         droplets.removeAll { $0.life <= 0 }
 
         // --- Bubbles: CPU/GPU work simmers the water from below ---
-        let simmer = state.cpuPercent * 0.6 + state.gpuPercent * 0.4
+        let simmer = (state.cpuPercent * 0.6 + state.gpuPercent * 0.4 + 0.02)
+            * state.intensity
         if simmer > 0.03, bubbles.count < 120, tank.right - tank.left > 20,
            randomFloat(0...1) < simmer * 2.5 * dt * 30 {
             bubbles.append(Bubble(

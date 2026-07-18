@@ -108,12 +108,15 @@ public final class FactoryPlugin: AnimationPlugin {
             let speed = (gears[i].radius > 10
                 ? 1 + state.performanceCorePercent * 9
                 : 1 + state.efficiencyCorePercent * 7) * (1 + state.stress * 2)
+                * max(state.intensity, 0.05)
             gears[i].angle += gears[i].direction * speed * dt
         }
 
         // Input rate: overall throughput demand.
-        var rate = 2 + state.cpuPercent * 18 + state.ramPercent * 10
-        if state.inferenceRunning { rate += min(state.tokensPerSecond, 60) * 0.4 }
+        var rate = (2 + state.cpuPercent * 18 + state.ramPercent * 10) * state.intensity
+        if state.inferenceRunning {
+            rate += min(state.tokensPerSecond, 60) * 0.4 * state.intensity
+        }
         spawnAccumulator += rate * dt
         while spawnAccumulator >= 1, crates.count < maxCrates {
             spawnAccumulator -= 1
@@ -135,6 +138,7 @@ public final class FactoryPlugin: AnimationPlugin {
         // Stress makes belts RUN FASTER while machines fall behind — crates
         // slam into growing pileups instead of the line going sleepy.
         let beltSpeed: Float = 60 * (0.6 + state.cpuPercent * 1.0 + state.stress * 1.4)
+            * max(state.intensity, 0.05)
         crates.sort { ($0.beltIndex, -$0.progress) < ($1.beltIndex, -$1.progress) }
         var leaderProgress: [Int: Float] = [:]
         for i in crates.indices {

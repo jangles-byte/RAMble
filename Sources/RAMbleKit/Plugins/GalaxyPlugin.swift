@@ -113,9 +113,9 @@ public final class GalaxyPlugin: AnimationPlugin {
         // Gravity: memory pressure pulls orbits toward the core.
         let pull = state.memoryPressure * 0.6 + blackHole * 0.8
         // Stress cranks the whole galaxy up: faster sweeps + chaotic wobble.
-        let speedBoost = 1 + state.cpuPercent * 1.2 + state.gpuPercent * 0.8
-            + state.stress * 3.5
-        let turbulence = state.stress * state.stress * 14
+        let speedBoost = (1 + state.cpuPercent * 1.2 + state.gpuPercent * 0.8
+            + state.stress * 3.5) * max(state.intensity, 0.05)
+        let turbulence = state.stress * state.stress * 14 * min(state.intensity, 1.5)
 
         let minRadius = min(bounds.x, bounds.y) * 0.02
         for i in stars.indices {

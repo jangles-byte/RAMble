@@ -47,7 +47,10 @@ final class OverlayController {
         stateEngine.$state
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
-                self?.overlays.values.forEach { $0.renderer.currentState = state }
+                guard let self else { return }
+                var s = state
+                s.intensity = Float(self.settings.intensity)
+                self.overlays.values.forEach { $0.renderer.currentState = s }
             }
             .store(in: &cancellables)
 
