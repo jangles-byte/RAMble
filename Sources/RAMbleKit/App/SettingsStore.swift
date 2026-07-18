@@ -42,6 +42,14 @@ public final class SettingsStore: ObservableObject {
     @Published public var customProcesses: String {
         didSet { defaults.set(customProcesses, forKey: "customProcesses") }
     }
+    /// Show the meters panel on the desktop overlay.
+    @Published public var showMeters: Bool {
+        didSet { defaults.set(showMeters, forKey: "showMeters") }
+    }
+    /// Which corner the meters panel sits in.
+    @Published public var metersCorner: MeterCorner {
+        didSet { defaults.set(metersCorner.rawValue, forKey: "metersCorner") }
+    }
 
     private let defaults: UserDefaults
 
@@ -67,6 +75,9 @@ public final class SettingsStore: ObservableObject {
         hideDockIcon = defaults.object(forKey: "hideDockIcon") as? Bool ?? true
         startAtLogin = defaults.object(forKey: "startAtLogin") as? Bool ?? false
         customProcesses = defaults.string(forKey: "customProcesses") ?? ""
+        showMeters = defaults.object(forKey: "showMeters") as? Bool ?? false
+        metersCorner = MeterCorner(rawValue:
+            defaults.string(forKey: "metersCorner") ?? "") ?? .topRight
     }
 
     private func applyLoginItem() {

@@ -88,9 +88,9 @@ public final class FactoryPlugin: AnimationPlugin {
 
         // Gear speed tracks CPU (P-cores drive big gears, E-cores small ones).
         for i in gears.indices {
-            let speed = gears[i].radius > 10
+            let speed = (gears[i].radius > 10
                 ? 1 + state.performanceCorePercent * 9
-                : 1 + state.efficiencyCorePercent * 7
+                : 1 + state.efficiencyCorePercent * 7) * (1 + state.stress * 2)
             gears[i].angle += gears[i].direction * speed * dt
         }
 
@@ -115,7 +115,9 @@ public final class FactoryPlugin: AnimationPlugin {
         }
 
         // Crates advance along belts, respecting headway (visible backups).
-        let beltSpeed: Float = 60 * (0.4 + serviceRate * 0.6)
+        // Stress makes belts RUN FASTER while machines fall behind — crates
+        // slam into growing pileups instead of the line going sleepy.
+        let beltSpeed: Float = 60 * (0.6 + state.cpuPercent * 1.0 + state.stress * 1.4)
         crates.sort { ($0.beltIndex, -$0.progress) < ($1.beltIndex, -$1.progress) }
         var leaderProgress: [Int: Float] = [:]
         for i in crates.indices {
@@ -196,11 +198,15 @@ public final class FactoryPlugin: AnimationPlugin {
         }
 
         // Machines: square blocks; backlog piles glow toward warning color.
+        // Overloaded machines rattle in place.
+        let shake = lastState.stress > 0.55 ? (lastState.stress - 0.55) * 9 : 0
         for m in machines {
             var c = simd_mix(theme.color(0), theme.warningColor,
                              SIMD4(repeating: m.backlog))
             c.w = 0.5 + m.workPulse * 0.4
-            out.append(Particle(position: m.position, color: c, size: 15,
+            let rattle = shake * m.backlog
+            let pos = m.position + SIMD2(randomFloat(-1...1), randomFloat(-1...1)) * rattle
+            out.append(Particle(position: pos, color: c, size: 15,
                                 glow: m.workPulse, shape: .square))
             // Backlog pile beside the machine.
             let pile = Int(m.backlog * 6)

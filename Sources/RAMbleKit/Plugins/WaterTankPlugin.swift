@@ -50,13 +50,15 @@ public final class WaterTankPlugin: AnimationPlugin {
         level += (state.ramPercent - level) * min(1, dt * 1.2)
 
         // --- 1D wave simulation on the surface (spring + neighbor coupling) ---
-        let agitation = state.memoryPressure * 0.7 + state.cpuPercent * 0.3
+        // Stress whips the surface into a storm: more kicks, harder kicks.
+        let agitation = min(1, state.memoryPressure * 0.5 + state.cpuPercent * 0.2
+                               + state.stress * 0.8)
         let stiffness: Float = 40
         let dampen: Float = 1 - min(0.985, 0.9 + (1 - agitation) * 0.08)
 
         // Random wind kicks scale with agitation; inference adds rhythmic chop.
         if agitation > 0.02 {
-            let kicks = 1 + Int(agitation * 5)
+            let kicks = 1 + Int(agitation * agitation * 12)
             for _ in 0..<kicks {
                 let i = Int.random(in: 0..<columnCount)
                 columns[i].velocity += randomFloat(-1...1) * agitation * 220 * dt * 30

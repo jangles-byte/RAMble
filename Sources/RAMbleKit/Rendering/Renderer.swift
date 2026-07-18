@@ -35,6 +35,7 @@ struct SceneUniforms {
     var viewport: SIMD2<Float>
     var globalAlpha: Float
     var time: Float
+    var sceneScale: Float
 }
 
 /// Reusable Metal renderer: instanced particle quads, persistent trail
@@ -203,9 +204,10 @@ public final class Renderer: NSObject, MTKViewDelegate {
             }
         }
 
-        var uniforms = SceneUniforms(viewport: bounds / max(sceneScale, 0.05),
+        var uniforms = SceneUniforms(viewport: bounds,
                                      globalAlpha: globalAlpha,
-                                     time: Float(now - startTime))
+                                     time: Float(now - startTime),
+                                     sceneScale: max(sceneScale, 0.05))
 
         // Pass 1: fade previous frame (trails), then draw particles into accum.
         let scenePass = MTLRenderPassDescriptor()

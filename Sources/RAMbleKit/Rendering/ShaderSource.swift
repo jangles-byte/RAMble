@@ -23,6 +23,7 @@ enum ShaderSource {
         float2 viewport;       // points
         float  globalAlpha;
         float  time;
+        float  sceneScale;     // applied in NDC space → scales from center
     };
 
     struct VOut {
@@ -59,6 +60,9 @@ enum ShaderSource {
         float2 world = p.position + axisX * corner.x * halfSize.x
                                   + axisY * corner.y * halfSize.y;
         float2 ndc = world / u.viewport * 2.0 - 1.0;
+        // NDC origin is the screen center, so scaling here grows/shrinks the
+        // whole scene evenly toward all four corners.
+        ndc *= u.sceneScale;
 
         VOut out;
         out.position = float4(ndc.x, ndc.y, 0, 1);

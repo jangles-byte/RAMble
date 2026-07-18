@@ -67,7 +67,10 @@ public final class GalaxyPlugin: AnimationPlugin {
 
         // Gravity: memory pressure pulls orbits toward the core.
         let pull = state.memoryPressure * 0.6 + blackHole * 0.8
+        // Stress cranks the whole galaxy up: faster sweeps + chaotic wobble.
         let speedBoost = 1 + state.cpuPercent * 1.2 + state.gpuPercent * 0.8
+            + state.stress * 3.5
+        let turbulence = state.stress * state.stress * 14
 
         let minRadius = min(bounds.x, bounds.y) * 0.02
         for i in stars.indices {
@@ -85,6 +88,11 @@ public final class GalaxyPlugin: AnimationPlugin {
             // Conserve a hint of angular momentum: tighter orbit → faster sweep.
             let momentum = max(s.baseRadius / max(s.radius, 1), 1)
             s.angle += s.speed * speedBoost * momentum * dt * 0.35
+            if turbulence > 0.1 {
+                // High stress: orbits shiver and stars get knocked around.
+                s.radius += randomFloat(-turbulence...turbulence) * dt * 30
+                s.angle += randomFloat(-turbulence...turbulence) * dt * 0.02
+            }
             stars[i] = s
         }
     }

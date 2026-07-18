@@ -1,5 +1,6 @@
 import AppKit
 import MetalKit
+import SwiftUI
 import Combine
 
 /// A borderless, transparent, click-through window pinned just above the
@@ -27,7 +28,8 @@ final class OverlayWindow: NSWindow {
 final class OverlayController {
     private let stateEngine: StateEngine
     private let settings: SettingsStore
-    private var overlays: [CGDirectDisplayID: (window: OverlayWindow, view: MTKView, renderer: Renderer)] = [:]
+    private var overlays: [CGDirectDisplayID: (window: OverlayWindow, view: MTKView,
+                                               renderer: Renderer, hud: NSHostingView<MeterHUDView>)] = [:]
     private var cancellables: Set<AnyCancellable> = []
 
     init(stateEngine: StateEngine, settings: SettingsStore) {
@@ -72,14 +74,23 @@ final class OverlayController {
                   let device = MTLCreateSystemDefaultDevice() else { continue }
             do {
                 let renderer = try Renderer(device: device)
-                let view = MTKView(frame: screen.frame, device: device)
+                let container = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
+                let view = MTKView(frame: container.bounds, device: device)
                 view.delegate = renderer
                 view.layer?.isOpaque = false
                 view.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
                 view.framebufferOnly = false
+                view.autoresizingMask = [.width, .height]
+                container.addSubview(view)
+
+                let hud = NSHostingView(rootView: MeterHUDView(
+                    stateEngine: stateEngine, settings: settings))
+                hud.isHidden = true
+                container.addSubview(hud)
+
                 let window = OverlayWindow(screen: screen)
-                window.contentView = view
-                overlays[id] = (window, view, renderer)
+                window.contentView = container
+                overlays[id] = (window, view, renderer, hud)
             } catch {
                 NSLog("RAMble: renderer init failed for display \(id): \(error)")
             }
@@ -108,7 +119,29 @@ final class OverlayController {
             if overlay.renderer.activePlugin?.name != plugin {
                 overlay.renderer.activePlugin = PluginRegistry.shared.makePlugin(named: plugin)
             }
+            layoutHUD(overlay.hud, in: overlay.window)
         }
+    }
+
+    private func layoutHUD(_ hud: NSHostingView<MeterHUDView>, in window: OverlayWindow) {
+        hud.isHidden = !settings.showMeters
+        guard settings.showMeters, let container = window.contentView else { return }
+        let size = hud.fittingSize
+        let margin: CGFloat = 28
+        let bounds = container.bounds
+        let origin: NSPoint
+        switch settings.metersCorner {
+        case .topLeft:
+            origin = NSPoint(x: margin, y: bounds.height - size.height - margin)
+        case .topRight:
+            origin = NSPoint(x: bounds.width - size.width - margin,
+                             y: bounds.height - size.height - margin)
+        case .bottomLeft:
+            origin = NSPoint(x: margin, y: margin)
+        case .bottomRight:
+            origin = NSPoint(x: bounds.width - size.width - margin, y: margin)
+        }
+        hud.frame = NSRect(origin: origin, size: size)
     }
 
     static func displayID(of screen: NSScreen) -> CGDirectDisplayID? {

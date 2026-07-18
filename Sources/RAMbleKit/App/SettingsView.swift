@@ -79,6 +79,13 @@ struct SettingsView: View {
 
     private var monitoringTab: some View {
         Form {
+            Section("Desktop meters") {
+                Toggle("Show meters on desktop", isOn: $settings.showMeters)
+                Picker("Position", selection: $settings.metersCorner) {
+                    ForEach(MeterCorner.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .disabled(!settings.showMeters)
+            }
             Section("Watched AI processes") {
                 Text(ProcessMonitor.defaultWatchList.joined(separator: ", "))
                     .font(.caption)

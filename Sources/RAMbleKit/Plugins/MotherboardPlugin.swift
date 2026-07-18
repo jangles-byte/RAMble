@@ -125,7 +125,9 @@ public final class MotherboardPlugin: AnimationPlugin {
         }
 
         // Traffic follows RAM churn + CPU; swap opens the RAM→disk routes.
+        // Stress floods the board with traffic — jams form from sheer volume.
         var rate = 4 + state.ramPercent * 30 + state.cpuPercent * 25
+            + state.stress * 60
         if state.inferenceRunning { rate += min(state.tokensPerSecond, 80) * 0.5 }
         spawnAccumulator += rate * dt
         while spawnAccumulator >= 1, packets.count < maxPackets {
@@ -142,9 +144,10 @@ public final class MotherboardPlugin: AnimationPlugin {
                                   colorIndex: Int.random(in: 0..<6)))
         }
 
-        // Congestion: memory pressure throttles trace bandwidth. Packets keep
-        // a minimum headway; blocked packets stall and back up down the trace.
-        let bandwidth = 1 - state.memoryPressure * 0.85
+        // Moving packets SPEED UP under stress — the board looks frantic, not
+        // sluggish. Packets keep a minimum headway; blocked ones stall and
+        // back up down the trace (congestion = angry queues, not slow motion).
+        let bandwidth = 1 + state.stress * 2.2
         let headway: Float = 9
 
         // Sort per trace by distance so each packet only checks its leader.
@@ -214,11 +217,14 @@ public final class MotherboardPlugin: AnimationPlugin {
         out.append(Particle(position: diskPosition, color: diskC, size: 14,
                             glow: lastState.swapPercent, shape: .square))
 
-        // Packets.
+        // Packets. Stalled ones vibrate — a jam reads as buzzing, not frozen.
         for p in packets {
             let trace = traces[p.traceIndex]
-            let pos = trace.position(at: p.distance)
+            var pos = trace.position(at: p.distance)
             let jam = min(p.stalled, 1)
+            if jam > 0.1 {
+                pos += SIMD2(randomFloat(-1.5...1.5), randomFloat(-1.5...1.5)) * jam
+            }
             var c = trace.kind == .ramToDisk
                 ? theme.warningColor
                 : simd_mix(theme.color(p.colorIndex), theme.warningColor,

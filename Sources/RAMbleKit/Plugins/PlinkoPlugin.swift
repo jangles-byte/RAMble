@@ -72,15 +72,21 @@ public final class PlinkoPlugin: AnimationPlugin {
             spawnBall(swapActive: state.swapPercent > 0.05)
         }
 
-        // Congestion: pressure adds drag, making balls pile up between pegs.
+        // Stress makes the board FASTER and more chaotic, never sluggish:
+        // gravity ramps up, balls get agitated jitter, bounces get violent.
+        // Congestion still shows as pileups — but they're angry, vibrating ones.
         let congestion = state.memoryPressure
-        let gravity: Float = -bounds.y * (0.55 - congestion * 0.35)
-        let drag: Float = 1 - min(0.9, congestion * 2.2) * dt
+        let stress = state.stress
+        let gravity: Float = -bounds.y * (0.55 + stress * 0.6)
+        let jitter: Float = stress * 180 + congestion * 120
 
         for i in balls.indices {
             var b = balls[i]
             b.velocity.y += gravity * dt
-            b.velocity *= drag
+            if jitter > 1 {
+                b.velocity += SIMD2(randomFloat(-jitter...jitter),
+                                    randomFloat(-jitter...jitter)) * dt * 8
+            }
             b.position += b.velocity * dt
 
             // Peg collisions.
@@ -94,9 +100,10 @@ public final class PlinkoPlugin: AnimationPlugin {
                     b.position = peg + normal * minDist
                     let vn = simd_dot(b.velocity, normal)
                     if vn < 0 {
-                        let bounce: Float = 0.35 + (1 - congestion) * 0.25
+                        // Bounces get MORE energetic under stress.
+                        let bounce: Float = 0.35 + stress * 0.45
                         b.velocity -= normal * vn * (1 + bounce)
-                        b.velocity.x += randomFloat(-14...14)
+                        b.velocity.x += randomFloat(-14...14) * (1 + stress * 2)
                     }
                 }
             }
