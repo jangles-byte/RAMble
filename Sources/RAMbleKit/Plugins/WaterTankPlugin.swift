@@ -20,8 +20,16 @@ public final class WaterTankPlugin: AnimationPlugin {
 
     private var bounds = SIMD2<Float>(800, 600)
     private var theme = Themes.glass
+    private struct Bubble {
+        var position: SIMD2<Float>
+        var speed: Float
+        var wobblePhase: Float
+        var size: Float
+    }
+
     private var columns: [SurfaceColumn] = []
     private var droplets: [Droplet] = []
+    private var bubbles: [Bubble] = []
     private var level: Float = 0            // smoothed water level 0…1
     private var time: Float = 0
     private var tank = (left: Float(0), right: Float(0), bottom: Float(0), top: Float(0))
@@ -113,6 +121,22 @@ public final class WaterTankPlugin: AnimationPlugin {
             droplets[i].life -= dt
         }
         droplets.removeAll { $0.life <= 0 || $0.position.y < -20 }
+
+        // --- Bubbles: CPU/GPU work simmers the water from below ---
+        let simmer = state.cpuPercent * 0.6 + state.gpuPercent * 0.4
+        if simmer > 0.03, bubbles.count < 120,
+           randomFloat(0...1) < simmer * 2.5 * dt * 30 {
+            bubbles.append(Bubble(
+                position: SIMD2(randomFloat(tank.left + 8...tank.right - 8), tank.bottom + 4),
+                speed: randomFloat(30...70) * (1 + simmer),
+                wobblePhase: randomFloat(0...(2 * .pi)),
+                size: randomFloat(1.2...3.0)))
+        }
+        for i in bubbles.indices {
+            bubbles[i].position.y += bubbles[i].speed * dt
+            bubbles[i].position.x += sin(time * 4 + bubbles[i].wobblePhase) * 8 * dt
+        }
+        bubbles.removeAll { $0.position.y >= surfaceY - 2 }
     }
 
     private func waterSurfaceY() -> Float {
@@ -159,7 +183,15 @@ public final class WaterTankPlugin: AnimationPlugin {
             rowIndex += 1
         }
 
-        // Surface: bright wave crest following the simulated columns.
+        // Bubbles rise through the body.
+        for b in bubbles {
+            var c = theme.calmColor
+            c.w *= 0.35
+            out.append(Particle(position: b.position, color: c, size: b.size, glow: 0.3))
+        }
+
+        // Surface: bright wave crest following the simulated columns, with
+        // caustic sparkles dancing along it.
         for i in 0..<columnCount {
             let px = tank.left + width * Float(i) / Float(columnCount - 1)
             let py = surfaceY + columns[i].height
@@ -171,6 +203,14 @@ public final class WaterTankPlugin: AnimationPlugin {
                                 color: simd_mix(c, theme.warningColor, SIMD4(repeating: energy * 0.5)),
                                 size: 3.2 * theme.particleScale,
                                 glow: 0.3 + energy * 0.5))
+            // Shimmer: a moving band of extra-bright sparkles.
+            let sparkle = sin(time * 3.5 + Float(i) * 0.9)
+            if sparkle > 0.82 {
+                var sc = theme.calmColor
+                sc.w *= (sparkle - 0.82) / 0.18 * 0.9
+                out.append(Particle(position: SIMD2(px, py + 1.5),
+                                    color: sc, size: 1.6, glow: 0.9))
+            }
         }
 
         // Droplets (splash + red overflow).

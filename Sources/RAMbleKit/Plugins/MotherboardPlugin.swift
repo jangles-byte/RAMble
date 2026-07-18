@@ -186,6 +186,19 @@ public final class MotherboardPlugin: AnimationPlugin {
             }
         }
 
+        // Soft halos ground the chips so they feel lit from within.
+        func halo(_ pos: SIMD2<Float>, _ intensity: Float, _ size: Float) {
+            var h = theme.stressColor(intensity)
+            h.w = 0.05 + intensity * 0.10
+            out.append(Particle(position: pos, color: h, size: size, glow: 0.2))
+        }
+        var coreCenter = SIMD2<Float>(0, 0)
+        for p in corePositions { coreCenter += p }
+        coreCenter /= Float(max(corePositions.count, 1))
+        halo(coreCenter, lastState.cpuPercent, 64)
+        halo(gpuPosition, lastState.gpuPercent, 46)
+        halo(diskPosition, lastState.swapPercent, 40)
+
         // CPU cores: squares that brighten with per-core load.
         for (i, pos) in corePositions.enumerated() {
             let activity = i < coreActivity.count ? coreActivity[i] : 0

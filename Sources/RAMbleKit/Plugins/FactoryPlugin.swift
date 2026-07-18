@@ -35,7 +35,14 @@ public final class FactoryPlugin: AnimationPlugin {
     private var belts: [Belt] = []
     private var machines: [Machine] = []
     private var gears: [(center: SIMD2<Float>, radius: Float, angle: Float, direction: Float)] = []
+    private struct Spark {
+        var position: SIMD2<Float>
+        var velocity: SIMD2<Float>
+        var life: Float
+    }
+
     private var crates: [Crate] = []
+    private var sparks: [Spark] = []
     private var spawnAccumulator: Float = 0
     private var time: Float = 0
     private var lastState = SystemState()
@@ -154,6 +161,15 @@ public final class FactoryPlugin: AnimationPlugin {
             }
             if c.progress >= 0.999 {
                 machines[machineIndex].workPulse = 1
+                // Impact sparks fly when a machine takes a crate.
+                if sparks.count < 160 {
+                    for _ in 0..<3 {
+                        sparks.append(Spark(
+                            position: machines[machineIndex].position,
+                            velocity: SIMD2(randomFloat(-90...90), randomFloat(40...140)),
+                            life: randomFloat(0.25...0.6)))
+                    }
+                }
                 if machineIndex + 1 < belts.count {
                     c.beltIndex = machineIndex + 1
                     c.progress = 0
@@ -168,6 +184,13 @@ public final class FactoryPlugin: AnimationPlugin {
             crates[i] = c
         }
         crates.removeAll { (!$0.falling && $0.progress > 1.5) || $0.position.y < -30 }
+
+        for i in sparks.indices {
+            sparks[i].velocity.y -= 500 * dt
+            sparks[i].position += sparks[i].velocity * dt
+            sparks[i].life -= dt
+        }
+        sparks.removeAll { $0.life <= 0 }
     }
 
     public func render(renderer: Renderer) {
@@ -217,6 +240,14 @@ public final class FactoryPlugin: AnimationPlugin {
                     color: theme.warningColor * SIMD4(1, 1, 1, 0.6),
                     size: 3.5, glow: 0.3, shape: .square))
             }
+        }
+
+        // Sparks: short-lived bright streaks off working machines.
+        for sp in sparks {
+            var c = theme.calmColor
+            c.w *= min(sp.life * 3, 1)
+            out.append(Particle(position: sp.position, velocity: sp.velocity,
+                                color: c, size: 1.6, glow: 0.9, shape: .streak))
         }
 
         // Crates.

@@ -112,6 +112,11 @@ final class OverlayController {
                 overlay.view.isPaused = true
                 continue
             }
+            // Bring-to-front: float over everything (still click-through);
+            // otherwise sit just above the wallpaper, below all windows.
+            overlay.window.level = settings.overlayOnTop
+                ? .screenSaver
+                : NSWindow.Level(Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
             overlay.view.preferredFramesPerSecond = settings.fpsLimit
             overlay.renderer.theme = theme
             overlay.renderer.globalAlpha = Float(settings.opacity)

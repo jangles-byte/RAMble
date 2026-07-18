@@ -40,8 +40,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setUpStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(
-            systemSymbolName: "memorychip", accessibilityDescription: "RAMble")
+        statusItem.button?.image = RamHeadIcon.menuBarImage()
+        statusItem.button?.image?.accessibilityDescription = "RAMble"
 
         let menu = NSMenu()
         let toggle = NSMenuItem(title: "Show Overlay", action: #selector(toggleOverlay),
@@ -65,6 +65,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                                       keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
+        let updateItem = NSMenuItem(title: "Check for Updates…",
+                                    action: #selector(checkForUpdates), keyEquivalent: "")
+        updateItem.target = self
+        menu.addItem(updateItem)
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit RAMble", action: #selector(NSApp.terminate(_:)),
                               keyEquivalent: "q")
@@ -84,6 +88,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         settingsController.show()
+    }
+
+    @objc private func checkForUpdates() {
+        settingsController.show()
+        DispatchQueue.main.async { UpdateChecker.shared.check() }
     }
 }
 

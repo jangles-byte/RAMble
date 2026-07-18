@@ -24,6 +24,12 @@ struct SettingsView: View {
     private var appearanceTab: some View {
         Form {
             Toggle("Show overlay", isOn: $settings.overlayEnabled)
+            Toggle("Bring to front (float over all windows)", isOn: $settings.overlayOnTop)
+            if settings.overlayOnTop {
+                Text("The overlay stays click-through — lower the opacity to see your work underneath.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Picker("Animation", selection: $settings.animationName) {
                 ForEach(PluginRegistry.shared.availableNames, id: \.self) { Text($0) }
             }
@@ -119,8 +125,45 @@ struct SettingsView: View {
             Text("RAMble lives in the menu bar. Quit or reopen settings from the menu bar icon.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            Divider()
+            updateSection
         }
         .padding()
+    }
+
+    @ObservedObject private var updater = UpdateChecker.shared
+
+    @ViewBuilder private var updateSection: some View {
+        LabeledContent("Version", value: updater.currentVersion)
+        switch updater.status {
+        case .idle, .upToDate, .failed:
+            HStack {
+                Button("Check for Updates") { updater.check() }
+                if case .upToDate = updater.status {
+                    Text("You're up to date ✓").font(.caption).foregroundStyle(.secondary)
+                }
+                if case .failed(let message) = updater.status {
+                    Text(message).font(.caption).foregroundStyle(.red)
+                }
+            }
+        case .checking:
+            HStack { ProgressView().controlSize(.small); Text("Checking…") }
+        case .available(let version):
+            HStack {
+                Button("Update to \(version)") { updater.downloadAndInstall() }
+                    .buttonStyle(.borderedProminent)
+                if !updater.canSelfUpdate {
+                    Text("Run from RAMble.app to enable one-click updates")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        case .downloading:
+            HStack { ProgressView().controlSize(.small); Text("Downloading…") }
+        case .installing:
+            HStack { ProgressView().controlSize(.small); Text("Installing…") }
+        case .installed:
+            Text("Installed — relaunching…").font(.caption)
+        }
     }
 
     private func percent(_ v: Float) -> String { "\(Int(v * 100))%" }

@@ -11,6 +11,12 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/RAMble "$APP/Contents/MacOS/RAMble"
 
+# Generate the ram-head app icon from the in-code vector drawing.
+ICONSET=build/RAMble.iconset
+rm -rf "$ICONSET"
+.build/release/RAMble --render-icon "$ICONSET"
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/RAMble.icns"
+
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -22,8 +28,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleName</key>                <string>RAMble</string>
     <key>CFBundleDisplayName</key>         <string>RAMble</string>
     <key>CFBundlePackageType</key>         <string>APPL</string>
-    <key>CFBundleShortVersionString</key>  <string>1.0.0</string>
-    <key>CFBundleVersion</key>             <string>1</string>
+    <key>CFBundleIconFile</key>            <string>RAMble</string>
+    <key>CFBundleShortVersionString</key>  <string>1.1.0</string>
+    <key>CFBundleVersion</key>             <string>2</string>
     <key>LSMinimumSystemVersion</key>      <string>15.0</string>
     <key>LSUIElement</key>                 <true/>
     <key>NSHighResolutionCapable</key>     <true/>
@@ -31,6 +38,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
+xattr -cr "$APP"
 codesign --force --sign - "$APP"
 echo "Built $APP"
 echo "Install with: cp -R $APP /Applications/"

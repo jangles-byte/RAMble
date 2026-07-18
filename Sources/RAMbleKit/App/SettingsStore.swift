@@ -42,6 +42,10 @@ public final class SettingsStore: ObservableObject {
     @Published public var customProcesses: String {
         didSet { defaults.set(customProcesses, forKey: "customProcesses") }
     }
+    /// Float the overlay above every window instead of behind them.
+    @Published public var overlayOnTop: Bool {
+        didSet { defaults.set(overlayOnTop, forKey: "overlayOnTop") }
+    }
     /// Show the meters panel on the desktop overlay.
     @Published public var showMeters: Bool {
         didSet { defaults.set(showMeters, forKey: "showMeters") }
@@ -75,6 +79,7 @@ public final class SettingsStore: ObservableObject {
         hideDockIcon = defaults.object(forKey: "hideDockIcon") as? Bool ?? true
         startAtLogin = defaults.object(forKey: "startAtLogin") as? Bool ?? false
         customProcesses = defaults.string(forKey: "customProcesses") ?? ""
+        overlayOnTop = defaults.object(forKey: "overlayOnTop") as? Bool ?? false
         showMeters = defaults.object(forKey: "showMeters") as? Bool ?? false
         metersCorner = MeterCorner(rawValue:
             defaults.string(forKey: "metersCorner") ?? "") ?? .topRight

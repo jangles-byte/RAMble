@@ -19,6 +19,7 @@ public final class PlinkoPlugin: AnimationPlugin {
     private var bounds = SIMD2<Float>(800, 600)
     private var theme = Themes.glass
     private var pegs: [SIMD2<Float>] = []
+    private var pegHeat: [Float] = []   // per-peg impact flash, decays fast
     private var pegRadius: Float = 5
     private var balls: [Ball] = []
     private var spawnAccumulator: Float = 0
@@ -54,12 +55,14 @@ public final class PlinkoPlugin: AnimationPlugin {
                 if x < bounds.x * 0.95 { pegs.append(SIMD2(x, y)) }
             }
         }
+        pegHeat = Array(repeating: 0, count: pegs.count)
     }
 
     public func update(state: SystemState, deltaTime: Float) {
         let dt = min(deltaTime, 1.0 / 30.0)
         pegPulse = max(0, pegPulse - dt * 2)
         if state.modelJustLoaded { pegPulse = 1 }
+        for i in pegHeat.indices { pegHeat[i] = max(0, pegHeat[i] - dt * 3.5) }
 
         // Spawn rate follows RAM usage; inference adds a steady token drizzle.
         let targetPopulation = Float(maxBalls) * (0.12 + state.ramPercent * 0.88)
@@ -90,7 +93,7 @@ public final class PlinkoPlugin: AnimationPlugin {
             b.position += b.velocity * dt
 
             // Peg collisions.
-            for peg in pegs {
+            for (pi, peg) in pegs.enumerated() {
                 let delta = b.position - peg
                 let minDist = b.radius + pegRadius
                 let distSq = simd_length_squared(delta)
@@ -104,6 +107,7 @@ public final class PlinkoPlugin: AnimationPlugin {
                         let bounce: Float = 0.35 + stress * 0.45
                         b.velocity -= normal * vn * (1 + bounce)
                         b.velocity.x += randomFloat(-14...14) * (1 + stress * 2)
+                        pegHeat[pi] = min(1, pegHeat[pi] + min(-vn / 300, 0.6))
                     }
                 }
             }
@@ -200,11 +204,15 @@ public final class PlinkoPlugin: AnimationPlugin {
         var out: [Particle] = []
         out.reserveCapacity(pegs.count + balls.count)
 
-        // Pegs: memory channels; pulse bright on model load.
+        // Pegs: memory channels; flash on impact, pulse bright on model load.
         let pegColor = simd_mix(theme.color(1), theme.calmColor, SIMD4(repeating: pegPulse))
-        for peg in pegs {
-            out.append(Particle(position: peg, color: pegColor * SIMD4(1, 1, 1, 0.55),
-                                size: pegRadius, glow: 0.2 + pegPulse * 0.8))
+        for (i, peg) in pegs.enumerated() {
+            let heat = i < pegHeat.count ? pegHeat[i] : 0
+            var c = simd_mix(pegColor, theme.calmColor, SIMD4(repeating: heat))
+            c.w = 0.55 + heat * 0.45
+            out.append(Particle(position: peg, color: c,
+                                size: pegRadius * (1 + heat * 0.5),
+                                glow: 0.2 + pegPulse * 0.8 + heat))
         }
 
         for b in balls {
@@ -214,10 +222,16 @@ public final class PlinkoPlugin: AnimationPlugin {
                 : simd_mix(theme.color(b.colorIndex), theme.warningColor,
                            SIMD4(repeating: jam * 0.6))
             color.w *= 0.9
+            let fast = simd_length_squared(b.velocity) > 40_000
             out.append(Particle(position: b.position, velocity: b.velocity, color: color,
                                 size: b.radius * theme.particleScale,
-                                glow: b.isOverflow ? 0.9 : 0.3 + jam * 0.3,
-                                shape: simd_length_squared(b.velocity) > 40_000 ? .streak : .disc))
+                                glow: b.isOverflow ? 0.9 : 0.35 + jam * 0.3,
+                                shape: fast ? .streak : .disc))
+            // Bright inner core gives the glass-marble look.
+            var core = color; core.w = min(1, color.w * 1.2)
+            out.append(Particle(position: b.position, color: core,
+                                size: b.radius * theme.particleScale * 0.45,
+                                glow: 0.8))
         }
         renderer.submit(out)
     }
