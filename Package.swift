@@ -13,6 +13,7 @@ let package = Package(
         .target(
             name: "RAMbleKit",
             path: "Sources/RAMbleKit",
+            resources: [.copy("Resources/ram-logo.png")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         // Thin app entry point.

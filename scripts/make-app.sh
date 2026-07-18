@@ -10,6 +10,8 @@ APP=build/RAMble.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/RAMble "$APP/Contents/MacOS/RAMble"
+# SwiftPM resource bundle (logo artwork) — Bundle.module finds it in Resources.
+cp -R .build/release/RAMble_RAMbleKit.bundle "$APP/Contents/Resources/"
 
 # Generate the ram-head app icon from the in-code vector drawing.
 ICONSET=build/RAMble.iconset
