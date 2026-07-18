@@ -29,7 +29,7 @@ struct MeterHUDView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.10)))
-        .opacity(settings.opacity)
+        .opacity(settings.metersOpacity)
         .animation(.easeOut(duration: 0.5), value: s.stress)
     }
 

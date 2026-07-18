@@ -54,6 +54,10 @@ public final class SettingsStore: ObservableObject {
     @Published public var showMeters: Bool {
         didSet { defaults.set(showMeters, forKey: "showMeters") }
     }
+    /// Opacity of the meters panel, independent of the overlay opacity.
+    @Published public var metersOpacity: Double {
+        didSet { defaults.set(metersOpacity, forKey: "metersOpacity") }
+    }
     /// Which corner the meters panel starts in (dragging overrides it).
     @Published public var metersCorner: MeterCorner {
         didSet { defaults.set(metersCorner.rawValue, forKey: "metersCorner") }
@@ -90,6 +94,7 @@ public final class SettingsStore: ObservableObject {
         customProcesses = defaults.string(forKey: "customProcesses") ?? ""
         overlayOnTop = defaults.object(forKey: "overlayOnTop") as? Bool ?? false
         showMeters = defaults.object(forKey: "showMeters") as? Bool ?? false
+        metersOpacity = defaults.object(forKey: "metersOpacity") as? Double ?? 0.9
         metersCorner = MeterCorner(rawValue:
             defaults.string(forKey: "metersCorner") ?? "") ?? .topRight
         metersPositions = defaults.dictionary(forKey: "metersPositions")

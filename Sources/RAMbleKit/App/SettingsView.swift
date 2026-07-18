@@ -101,6 +101,11 @@ struct SettingsView: View {
                 .onChange(of: settings.metersCorner) {
                     settings.metersPositions = [:]   // corner pick resets drags
                 }
+                Slider(value: $settings.metersOpacity, in: 0.15...1.0) {
+                    Text("Meters opacity")
+                } minimumValueLabel: { Image(systemName: "circle.dotted") }
+                  maximumValueLabel: { Image(systemName: "circle.fill") }
+                .disabled(!settings.showMeters)
                 Text("Click and hold the panel to drag it anywhere — it can't leave the screen. Picking a corner resets it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
