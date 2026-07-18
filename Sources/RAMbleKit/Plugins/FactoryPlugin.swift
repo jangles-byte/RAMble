@@ -15,6 +15,7 @@ public final class FactoryPlugin: AnimationPlugin {
         var stalled: Float = 0
         var falling: Bool = false
         var velocity = SIMD2<Float>(0, 0)
+        var settled: Float = 0     // rest time after falling; drives fade-out
     }
     private struct Belt {
         var start: SIMD2<Float>
@@ -31,6 +32,8 @@ public final class FactoryPlugin: AnimationPlugin {
     }
 
     private var bounds = SIMD2<Float>(800, 600)
+    private var worldMin = SIMD2<Float>(0, 0)
+    private var worldMax = SIMD2<Float>(800, 600)
     private var theme = Themes.glass
     private var belts: [Belt] = []
     private var machines: [Machine] = []
@@ -54,8 +57,15 @@ public final class FactoryPlugin: AnimationPlugin {
     public func prepare(bounds: SIMD2<Float>, theme: Theme) {
         self.bounds = bounds
         self.theme = theme
+        worldMin = SIMD2(0, 0)
+        worldMax = bounds
         buildFactory()
         crates.removeAll(keepingCapacity: true)
+    }
+
+    public func worldChanged(worldMin: SIMD2<Float>, worldMax: SIMD2<Float>) {
+        self.worldMin = worldMin
+        self.worldMax = worldMax
     }
 
     public func themeDidChange(_ theme: Theme) { self.theme = theme }
@@ -132,6 +142,22 @@ public final class FactoryPlugin: AnimationPlugin {
             if c.falling {
                 c.velocity.y -= 800 * dt
                 c.position += c.velocity * dt
+                // Rejected crates bounce off the real screen edges and come
+                // to rest on the screen bottom, then fade away.
+                if c.position.y < worldMin.y + 4 {
+                    c.position.y = worldMin.y + 4
+                    c.velocity.y = abs(c.velocity.y) * 0.38
+                    c.velocity.x *= 0.90
+                }
+                if c.position.x < worldMin.x + 4 {
+                    c.position.x = worldMin.x + 4
+                    c.velocity.x = abs(c.velocity.x) * 0.5
+                }
+                if c.position.x > worldMax.x - 4 {
+                    c.position.x = worldMax.x - 4
+                    c.velocity.x = -abs(c.velocity.x) * 0.5
+                }
+                if simd_length_squared(c.velocity) < 300 { c.settled += dt }
                 crates[i] = c
                 continue
             }
@@ -183,7 +209,7 @@ public final class FactoryPlugin: AnimationPlugin {
             }
             crates[i] = c
         }
-        crates.removeAll { (!$0.falling && $0.progress > 1.5) || $0.position.y < -30 }
+        crates.removeAll { (!$0.falling && $0.progress > 1.5) || $0.settled > 6 }
 
         for i in sparks.indices {
             sparks[i].velocity.y -= 500 * dt
@@ -257,7 +283,8 @@ public final class FactoryPlugin: AnimationPlugin {
                 ? theme.warningColor
                 : simd_mix(theme.color(c.colorIndex), theme.warningColor,
                            SIMD4(repeating: jam * 0.6))
-            color.w *= 0.9
+            let fade = min(max((6 - c.settled), 0), 1)   // last second fades out
+            color.w *= 0.9 * fade
             out.append(Particle(position: c.position, velocity: c.velocity,
                                 color: color, size: 3.8 * theme.particleScale,
                                 glow: c.falling ? 0.8 : 0.2 + jam * 0.3, shape: .square))

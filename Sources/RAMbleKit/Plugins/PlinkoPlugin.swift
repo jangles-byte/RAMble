@@ -17,7 +17,13 @@ public final class PlinkoPlugin: AnimationPlugin {
     }
 
     private var bounds = SIMD2<Float>(800, 600)
+    private var worldMin = SIMD2<Float>(0, 0)   // real screen edges in scene space
+    private var worldMax = SIMD2<Float>(800, 600)
     private var theme = Themes.glass
+
+    /// Seconds a ball may sit still before fading out (so nothing piles up).
+    private let settleDespawn: Float = 5
+    private let fadeDuration: Float = 1
     private var pegs: [SIMD2<Float>] = []
     private var pegHeat: [Float] = []   // per-peg impact flash, decays fast
     private var pegRadius: Float = 5
@@ -32,9 +38,19 @@ public final class PlinkoPlugin: AnimationPlugin {
     public func prepare(bounds: SIMD2<Float>, theme: Theme) {
         self.bounds = bounds
         self.theme = theme
+        worldMin = SIMD2(0, 0)
+        worldMax = bounds
         balls.removeAll(keepingCapacity: true)
         buildPegs()
     }
+
+    public func worldChanged(worldMin: SIMD2<Float>, worldMax: SIMD2<Float>) {
+        self.worldMin = worldMin
+        self.worldMax = worldMax
+    }
+
+    /// Test hook: live ball positions (used by the self-test suite).
+    public var testBallPositions: [SIMD2<Float>] { balls.map(\.position) }
 
     public func themeDidChange(_ theme: Theme) { self.theme = theme }
 
@@ -112,11 +128,20 @@ public final class PlinkoPlugin: AnimationPlugin {
                 }
             }
 
-            // Walls.
-            if b.position.x < b.radius { b.position.x = b.radius; b.velocity.x = abs(b.velocity.x) * 0.5 }
-            if b.position.x > bounds.x - b.radius {
-                b.position.x = bounds.x - b.radius
+            // Screen edges are the true walls and floor — even when the
+            // board is scaled down, escapees stay trapped on the display.
+            if b.position.x < worldMin.x + b.radius {
+                b.position.x = worldMin.x + b.radius
+                b.velocity.x = abs(b.velocity.x) * 0.5
+            }
+            if b.position.x > worldMax.x - b.radius {
+                b.position.x = worldMax.x - b.radius
                 b.velocity.x = -abs(b.velocity.x) * 0.5
+            }
+            if b.position.y < worldMin.y + b.radius {
+                b.position.y = worldMin.y + b.radius
+                b.velocity.y = abs(b.velocity.y) * 0.42   // bounce off the screen bottom
+                b.velocity.x *= 0.94                       // rolling friction
             }
 
             // Jam detection: slow-moving balls under pressure stack up.
@@ -139,23 +164,9 @@ public final class PlinkoPlugin: AnimationPlugin {
             }
         }
 
-        // Retire balls that fell off (or recycle settled floor balls when calm).
-        let floorY: Float = bounds.y * 0.04
-        balls.removeAll { b in
-            if b.position.y < -b.radius * 4 { return true }
-            if !b.isOverflow && b.position.y < floorY && b.settled > lerp(6, 1.5, 1 - congestion) {
-                return true
-            }
-            return false
-        }
-
-        // Floor: non-overflow balls rest on the bottom edge and stack.
-        for i in balls.indices where !balls[i].isOverflow {
-            if balls[i].position.y < floorY {
-                balls[i].position.y = floorY
-                balls[i].velocity.y = abs(balls[i].velocity.y) * 0.2
-            }
-        }
+        // Despawn: once a ball has been still for a while it fades out and
+        // vanishes so nothing piles up along the screen bottom.
+        balls.removeAll { $0.settled > settleDespawn + fadeDuration }
     }
 
     private func spawnBall(swapActive: Bool) {
@@ -221,7 +232,9 @@ public final class PlinkoPlugin: AnimationPlugin {
                 ? theme.warningColor
                 : simd_mix(theme.color(b.colorIndex), theme.warningColor,
                            SIMD4(repeating: jam * 0.6))
-            color.w *= 0.9
+            // Fade out during the final second before despawn.
+            let fade = min(max((settleDespawn + fadeDuration - b.settled) / fadeDuration, 0), 1)
+            color.w *= 0.9 * fade
             let fast = simd_length_squared(b.velocity) > 40_000
             out.append(Particle(position: b.position, velocity: b.velocity, color: color,
                                 size: b.radius * theme.particleScale,

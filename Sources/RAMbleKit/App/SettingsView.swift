@@ -91,6 +91,12 @@ struct SettingsView: View {
                     ForEach(MeterCorner.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .disabled(!settings.showMeters)
+                .onChange(of: settings.metersCorner) {
+                    settings.metersPositions = [:]   // corner pick resets drags
+                }
+                Text("Click and hold the panel to drag it anywhere — it can't leave the screen. Picking a corner resets it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section("Watched AI processes") {
                 Text(ProcessMonitor.defaultWatchList.joined(separator: ", "))

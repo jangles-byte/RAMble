@@ -50,9 +50,13 @@ public final class SettingsStore: ObservableObject {
     @Published public var showMeters: Bool {
         didSet { defaults.set(showMeters, forKey: "showMeters") }
     }
-    /// Which corner the meters panel sits in.
+    /// Which corner the meters panel starts in (dragging overrides it).
     @Published public var metersCorner: MeterCorner {
         didSet { defaults.set(metersCorner.rawValue, forKey: "metersCorner") }
+    }
+    /// Dragged panel positions, keyed by display ID → [x, y] (screen coords).
+    @Published public var metersPositions: [String: [Double]] {
+        didSet { defaults.set(metersPositions, forKey: "metersPositions") }
     }
 
     private let defaults: UserDefaults
@@ -83,6 +87,8 @@ public final class SettingsStore: ObservableObject {
         showMeters = defaults.object(forKey: "showMeters") as? Bool ?? false
         metersCorner = MeterCorner(rawValue:
             defaults.string(forKey: "metersCorner") ?? "") ?? .topRight
+        metersPositions = defaults.dictionary(forKey: "metersPositions")
+            as? [String: [Double]] ?? [:]
     }
 
     private func applyLoginItem() {

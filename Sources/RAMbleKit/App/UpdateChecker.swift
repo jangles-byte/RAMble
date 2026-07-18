@@ -135,7 +135,7 @@ public final class UpdateChecker: ObservableObject {
     }
 
     /// Semantic-ish version compare ("1.2.0" vs "1.10" handled numerically).
-    static func isNewer(_ candidate: String, than current: String) -> Bool {
+    nonisolated public static func isNewer(_ candidate: String, than current: String) -> Bool {
         let a = candidate.split(separator: ".").map { Int($0) ?? 0 }
         let b = current.split(separator: ".").map { Int($0) ?? 0 }
         for i in 0..<max(a.count, b.count) {

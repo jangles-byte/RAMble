@@ -79,3 +79,43 @@ public enum MeterCorner: String, CaseIterable, Identifiable {
     case bottomRight = "Bottom Right"
     public var id: String { rawValue }
 }
+
+/// A small draggable window hosting the meters panel. Click-and-hold anywhere
+/// on it to drag; it clamps itself to the screen so it can never be lost
+/// off-screen. Non-activating, so dragging never steals focus from your work.
+final class MeterPanel: NSPanel, NSWindowDelegate {
+    /// Called after every (clamped) move with the new origin.
+    var onMoved: ((NSPoint) -> Void)?
+    private var clamping = false
+
+    init(content: NSView) {
+        super.init(contentRect: NSRect(origin: .zero, size: content.fittingSize),
+                   styleMask: [.borderless, .nonactivatingPanel],
+                   backing: .buffered, defer: false)
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+        isMovableByWindowBackground = true      // click-hold-drag anywhere on it
+        collectionBehavior = [.canJoinAllSpaces, .ignoresCycle]
+        isReleasedWhenClosed = false
+        contentView = content
+        delegate = self
+    }
+
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+
+    func windowDidMove(_ notification: Notification) {
+        guard !clamping, let screen = screen ?? NSScreen.main else { return }
+        let limit = screen.frame
+        var origin = frame.origin
+        origin.x = min(max(origin.x, limit.minX), limit.maxX - frame.width)
+        origin.y = min(max(origin.y, limit.minY), limit.maxY - frame.height)
+        if origin != frame.origin {
+            clamping = true
+            setFrameOrigin(origin)
+            clamping = false
+        }
+        onMoved?(origin)
+    }
+}

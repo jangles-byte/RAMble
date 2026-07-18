@@ -29,7 +29,7 @@ final class OverlayController {
     private let stateEngine: StateEngine
     private let settings: SettingsStore
     private var overlays: [CGDirectDisplayID: (window: OverlayWindow, view: MTKView,
-                                               renderer: Renderer, hud: NSHostingView<MeterHUDView>)] = [:]
+                                               renderer: Renderer, meters: MeterPanel)] = [:]
     private var cancellables: Set<AnyCancellable> = []
 
     init(stateEngine: StateEngine, settings: SettingsStore) {
@@ -66,6 +66,7 @@ final class OverlayController {
         // Drop overlays for disconnected screens.
         for (id, overlay) in overlays where !currentIDs.contains(id) {
             overlay.window.orderOut(nil)
+            overlay.meters.orderOut(nil)
             overlays.removeValue(forKey: id)
         }
         // Add overlays for new screens.
@@ -74,23 +75,24 @@ final class OverlayController {
                   let device = MTLCreateSystemDefaultDevice() else { continue }
             do {
                 let renderer = try Renderer(device: device)
-                let container = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
-                let view = MTKView(frame: container.bounds, device: device)
+                let view = MTKView(frame: screen.frame, device: device)
                 view.delegate = renderer
                 view.layer?.isOpaque = false
                 view.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
                 view.framebufferOnly = false
-                view.autoresizingMask = [.width, .height]
-                container.addSubview(view)
-
-                let hud = NSHostingView(rootView: MeterHUDView(
-                    stateEngine: stateEngine, settings: settings))
-                hud.isHidden = true
-                container.addSubview(hud)
-
                 let window = OverlayWindow(screen: screen)
-                window.contentView = container
-                overlays[id] = (window, view, renderer, hud)
+                window.contentView = view
+
+                // Meters live in their own tiny draggable window so the main
+                // overlay can stay fully click-through.
+                let hosting = NSHostingView(rootView: MeterHUDView(
+                    stateEngine: stateEngine, settings: settings))
+                let meters = MeterPanel(content: hosting)
+                meters.onMoved = { [weak self] origin in
+                    self?.settings.metersPositions["\(id)"] =
+                        [Double(origin.x), Double(origin.y)]
+                }
+                overlays[id] = (window, view, renderer, meters)
             } catch {
                 NSLog("RAMble: renderer init failed for display \(id): \(error)")
             }
@@ -109,6 +111,7 @@ final class OverlayController {
                 overlay.view.isPaused = false
             } else {
                 overlay.window.orderOut(nil)
+                overlay.meters.orderOut(nil)
                 overlay.view.isPaused = true
                 continue
             }
@@ -124,29 +127,41 @@ final class OverlayController {
             if overlay.renderer.activePlugin?.name != plugin {
                 overlay.renderer.activePlugin = PluginRegistry.shared.makePlugin(named: plugin)
             }
-            layoutHUD(overlay.hud, in: overlay.window)
+            layoutMeters(overlay.meters, id: id, overlayLevel: overlay.window.level)
         }
     }
 
-    private func layoutHUD(_ hud: NSHostingView<MeterHUDView>, in window: OverlayWindow) {
-        hud.isHidden = !settings.showMeters
-        guard settings.showMeters, let container = window.contentView else { return }
-        let size = hud.fittingSize
-        let margin: CGFloat = 28
-        let bounds = container.bounds
+    private func layoutMeters(_ panel: MeterPanel, id: CGDirectDisplayID,
+                              overlayLevel: NSWindow.Level) {
+        guard settings.showMeters else { panel.orderOut(nil); return }
+        guard let screen = NSScreen.screens.first(where: {
+            Self.displayID(of: $0) == id
+        }) else { return }
+
+        panel.level = NSWindow.Level(rawValue: overlayLevel.rawValue + 1)
+        let size = panel.contentView?.fittingSize ?? panel.frame.size
+        panel.setContentSize(size)
+
         let origin: NSPoint
-        switch settings.metersCorner {
-        case .topLeft:
-            origin = NSPoint(x: margin, y: bounds.height - size.height - margin)
-        case .topRight:
-            origin = NSPoint(x: bounds.width - size.width - margin,
-                             y: bounds.height - size.height - margin)
-        case .bottomLeft:
-            origin = NSPoint(x: margin, y: margin)
-        case .bottomRight:
-            origin = NSPoint(x: bounds.width - size.width - margin, y: margin)
+        if let saved = settings.metersPositions["\(id)"], saved.count == 2 {
+            origin = NSPoint(x: saved[0], y: saved[1])
+        } else {
+            let margin: CGFloat = 28
+            let f = screen.frame
+            switch settings.metersCorner {
+            case .topLeft:
+                origin = NSPoint(x: f.minX + margin, y: f.maxY - size.height - margin)
+            case .topRight:
+                origin = NSPoint(x: f.maxX - size.width - margin,
+                                 y: f.maxY - size.height - margin)
+            case .bottomLeft:
+                origin = NSPoint(x: f.minX + margin, y: f.minY + margin)
+            case .bottomRight:
+                origin = NSPoint(x: f.maxX - size.width - margin, y: f.minY + margin)
+            }
         }
-        hud.frame = NSRect(origin: origin, size: size)
+        panel.setFrameOrigin(origin)
+        panel.orderFront(nil)
     }
 
     static func displayID(of screen: NSScreen) -> CGDirectDisplayID? {

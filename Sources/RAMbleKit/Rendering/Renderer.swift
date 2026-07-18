@@ -58,6 +58,7 @@ public final class Renderer: NSObject, MTKViewDelegate {
         didSet {
             guard activePlugin !== oldValue else { return }
             activePlugin?.prepare(bounds: bounds, theme: theme)
+            lastWorld = (SIMD2(.nan, .nan), SIMD2(.nan, .nan))  // resend world
         }
     }
     /// Latest state snapshot; assigned by the coordinator on the main thread.
@@ -84,6 +85,7 @@ public final class Renderer: NSObject, MTKViewDelegate {
     private var frameParticles: [Particle] = []
     private var lastFrameTime: CFTimeInterval = CACurrentMediaTime()
     private var startTime: CFTimeInterval = CACurrentMediaTime()
+    private var lastWorld = (min: SIMD2<Float>(.nan, .nan), max: SIMD2<Float>(.nan, .nan))
 
     public init(device: MTLDevice) throws {
         self.device = device
@@ -165,6 +167,7 @@ public final class Renderer: NSObject, MTKViewDelegate {
         bounds = SIMD2(Float(size.width / scale), Float(size.height / scale))
         accumTexture = nil  // rebuild offscreen textures at the new size
         activePlugin?.prepare(bounds: bounds, theme: theme)
+        lastWorld = (SIMD2(.nan, .nan), SIMD2(.nan, .nan))      // resend world
     }
 
     public func draw(in view: MTKView) {
@@ -175,6 +178,24 @@ public final class Renderer: NSObject, MTKViewDelegate {
         if bounds.x <= 1 {
             let size = view.bounds.size
             bounds = SIMD2(Float(size.width), Float(size.height))
+            // The plugin was prepared against the placeholder bounds; rebuild
+            // its scene now that the real view size is known.
+            activePlugin?.prepare(bounds: bounds, theme: theme)
+            lastWorld = (SIMD2(.nan, .nan), SIMD2(.nan, .nan))
+        }
+
+        // The screen's edges in scene coordinates: scaling in NDC keeps the
+        // scene centered, so at scale < 1 the world extends past the scene
+        // (things can fall out of the scene box and land on the real screen
+        // bottom); at scale > 1 the world is a window into the scene.
+        let scale = max(sceneScale, 0.05)
+        let half = bounds * 0.5
+        let extent = bounds / (2 * scale)
+        let worldMin = half - extent
+        let worldMax = half + extent
+        if worldMin != lastWorld.min || worldMax != lastWorld.max {
+            lastWorld = (worldMin, worldMax)
+            activePlugin?.worldChanged(worldMin: worldMin, worldMax: worldMax)
         }
 
         var state = currentState

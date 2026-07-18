@@ -19,6 +19,8 @@ public final class WaterTankPlugin: AnimationPlugin {
     }
 
     private var bounds = SIMD2<Float>(800, 600)
+    private var worldMin = SIMD2<Float>(0, 0)
+    private var worldMax = SIMD2<Float>(800, 600)
     private var theme = Themes.glass
     private struct Bubble {
         var position: SIMD2<Float>
@@ -48,6 +50,13 @@ public final class WaterTankPlugin: AnimationPlugin {
         tank.top = bounds.y * 0.82
         columns = Array(repeating: SurfaceColumn(height: 0, velocity: 0), count: columnCount)
         droplets.removeAll(keepingCapacity: true)
+        worldMin = SIMD2(0, 0)
+        worldMax = bounds
+    }
+
+    public func worldChanged(worldMin: SIMD2<Float>, worldMax: SIMD2<Float>) {
+        self.worldMin = worldMin
+        self.worldMax = worldMax
     }
 
     public func themeDidChange(_ theme: Theme) { self.theme = theme }
@@ -119,12 +128,18 @@ public final class WaterTankPlugin: AnimationPlugin {
             droplets[i].velocity.y -= 700 * dt
             droplets[i].position += droplets[i].velocity * dt
             droplets[i].life -= dt
+            // Overflow splashes off the real screen bottom before it dries up.
+            if droplets[i].position.y < worldMin.y + 2 {
+                droplets[i].position.y = worldMin.y + 2
+                droplets[i].velocity.y = abs(droplets[i].velocity.y) * 0.45
+                droplets[i].velocity.x *= 0.9
+            }
         }
-        droplets.removeAll { $0.life <= 0 || $0.position.y < -20 }
+        droplets.removeAll { $0.life <= 0 }
 
         // --- Bubbles: CPU/GPU work simmers the water from below ---
         let simmer = state.cpuPercent * 0.6 + state.gpuPercent * 0.4
-        if simmer > 0.03, bubbles.count < 120,
+        if simmer > 0.03, bubbles.count < 120, tank.right - tank.left > 20,
            randomFloat(0...1) < simmer * 2.5 * dt * 30 {
             bubbles.append(Bubble(
                 position: SIMD2(randomFloat(tank.left + 8...tank.right - 8), tank.bottom + 4),

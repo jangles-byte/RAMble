@@ -137,6 +137,15 @@ do {
         expect(true, "\(name) survives 10s of extreme + calm states")
     }
 
+    // Regression: before the first layout pass the view reports ~1x1 bounds;
+    // plugins must not crash (e.g. inverted random ranges) at degenerate sizes.
+    for name in builtIn {
+        guard let plugin = PluginRegistry.shared.makePlugin(named: name) else { continue }
+        plugin.prepare(bounds: SIMD2(1, 1), theme: Themes.glass)
+        for _ in 0..<30 { plugin.update(state: extreme, deltaTime: 1.0 / 60.0) }
+        expect(true, "\(name) survives degenerate 1x1 bounds")
+    }
+
     final class NullPlugin: AnimationPlugin {
         let name = "Null"
         func prepare(bounds: SIMD2<Float>, theme: Theme) {}
@@ -146,6 +155,46 @@ do {
     PluginRegistry.shared.register(name: "Null") { NullPlugin() }
     expect(PluginRegistry.shared.makePlugin(named: "Null") != nil,
            "custom plugin registration works")
+}
+
+// MARK: - Update version compare
+
+print("UpdateChecker")
+do {
+    expect(UpdateChecker.isNewer("1.2.0", than: "1.1.0"), "1.2.0 > 1.1.0")
+    expect(!UpdateChecker.isNewer("1.1.0", than: "1.1.0"), "equal versions are not newer")
+    expect(UpdateChecker.isNewer("1.10.0", than: "1.9.9"), "numeric compare, not lexical")
+    expect(!UpdateChecker.isNewer("0.9", than: "1.0"), "older is not newer")
+    expect(UpdateChecker.isNewer("2", than: "1.9.9"), "short version strings work")
+}
+
+// MARK: - World-box physics (screen edges trap escapees)
+
+print("World box")
+do {
+    let plinko = PlinkoPlugin()
+    plinko.prepare(bounds: SIMD2(1000, 800), theme: Themes.glass)
+    // Simulate scale 0.5: the world extends well below/around the scene box.
+    let wMin = SIMD2<Float>(-500, -400)
+    let wMax = SIMD2<Float>(1500, 1200)
+    plinko.worldChanged(worldMin: wMin, worldMax: wMax)
+    var busy = SystemState()
+    busy.ramPercent = 0.8
+    for _ in 0..<(60 * 20) { plinko.update(state: busy, deltaTime: 1.0 / 60.0) }
+    let positions = plinko.testBallPositions
+    expect(!positions.isEmpty, "plinko has live balls after 20s")
+    expect(positions.allSatisfy { $0.y >= wMin.y - 1 },
+           "no ball ever passes below the screen-bottom floor")
+    expect(positions.allSatisfy { $0.x >= wMin.x - 1 && $0.x <= wMax.x + 1 },
+           "no ball ever escapes the screen sides")
+    expect(positions.contains { $0.y < -10 },
+           "balls do fall out of the scaled scene box onto the real floor")
+
+    // Settled balls must despawn instead of piling up forever.
+    let calm = SystemState()
+    for _ in 0..<(60 * 30) { plinko.update(state: calm, deltaTime: 1.0 / 60.0) }
+    expect(plinko.testBallPositions.count < positions.count,
+           "settled balls fade away instead of piling up")
 }
 
 // MARK: - Live monitors (smoke)

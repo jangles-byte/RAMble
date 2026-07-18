@@ -18,10 +18,18 @@ public protocol AnimationPlugin: AnyObject {
 
     /// Called when the user switches themes while the plugin is active.
     func themeDidChange(_ theme: Theme)
+
+    /// Called whenever the *screen's* extent in scene coordinates changes
+    /// (i.e. when the scale setting moves). The scene box (`bounds` from
+    /// `prepare`) holds the structure; `worldMin`…`worldMax` are the real
+    /// screen edges — physics objects may escape the scene but are trapped
+    /// by the world. At scale 1 the two are identical.
+    func worldChanged(worldMin: SIMD2<Float>, worldMax: SIMD2<Float>)
 }
 
 public extension AnimationPlugin {
     func themeDidChange(_ theme: Theme) {}
+    func worldChanged(worldMin: SIMD2<Float>, worldMax: SIMD2<Float>) {}
 }
 
 /// Factory + lookup for available animations. Register custom plugins here
