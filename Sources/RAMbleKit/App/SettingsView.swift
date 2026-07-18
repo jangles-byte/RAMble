@@ -36,26 +36,57 @@ struct SettingsView: View {
             Picker("Theme", selection: $settings.themeName) {
                 ForEach(Themes.all) { Text($0.name).tag($0.name) }
             }
-            Slider(value: $settings.intensity, in: 0.2...2.5) {
-                Text("Intensity")
-            } minimumValueLabel: { Image(systemName: "tortoise") }
-              maximumValueLabel: { Image(systemName: "hare") }
+            HStack {
+                Slider(value: $settings.intensity, in: 0.2...2.5) {
+                    Text("Intensity")
+                } minimumValueLabel: { Image(systemName: "tortoise") }
+                  maximumValueLabel: { Image(systemName: "hare") }
+                Text(String(format: "%.1f×", settings.intensity))
+                    .monospacedDigit().foregroundStyle(.secondary)
+                    .frame(width: 44, alignment: .trailing)
+            }
             Text("How busy the animation is — slow drip on the left, full chaos on the right. System load still layers on top.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Slider(value: $settings.opacity, in: 0.1...1.0) {
-                Text("Opacity")
-            } minimumValueLabel: { Image(systemName: "circle.dotted") }
-              maximumValueLabel: { Image(systemName: "circle.fill") }
-            Slider(value: $settings.scale, in: 0.5...2.0) {
-                Text("Scale")
-            } minimumValueLabel: { Image(systemName: "minus.magnifyingglass") }
-              maximumValueLabel: { Image(systemName: "plus.magnifyingglass") }
+            HStack {
+                Slider(value: $settings.opacity, in: 0.1...1.0) {
+                    Text("Opacity")
+                } minimumValueLabel: { Image(systemName: "circle.dotted") }
+                  maximumValueLabel: { Image(systemName: "circle.fill") }
+                Text("\(Int(settings.opacity * 100))%")
+                    .monospacedDigit().foregroundStyle(.secondary)
+                    .frame(width: 44, alignment: .trailing)
+            }
+            if settings.opacity < 0.3 {
+                Text("⚠️ Very low opacity — the animation will be hard to see.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+            HStack {
+                Slider(value: $settings.scale, in: 0.5...2.0) {
+                    Text("Scale")
+                } minimumValueLabel: { Image(systemName: "minus.magnifyingglass") }
+                  maximumValueLabel: { Image(systemName: "plus.magnifyingglass") }
+                Text(String(format: "%.1f×", settings.scale))
+                    .monospacedDigit().foregroundStyle(.secondary)
+                    .frame(width: 44, alignment: .trailing)
+            }
+            if settings.scale > 1.4 {
+                Text("⚠️ Large scale pushes parts of the scene off-screen.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
             Picker("Frame rate limit", selection: $settings.fpsLimit) {
                 Text("30 FPS").tag(30)
                 Text("60 FPS").tag(60)
                 Text("90 FPS").tag(90)
                 Text("120 FPS").tag(120)
+            }
+            Button("Reset Appearance to Defaults") {
+                settings.opacity = 0.85
+                settings.scale = 1.0
+                settings.intensity = 1.0
+                settings.fpsLimit = 60
             }
         }
         .padding()

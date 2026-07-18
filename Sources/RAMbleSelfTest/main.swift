@@ -92,6 +92,26 @@ do {
            && active.tokensPerSecond > 0, "detects inference from process states")
     let done = monitor.sample(processStates: [], gpuUsage: 0)
     expect(done.generationJustFinished, "flags generation completion")
+
+    // GPU-offloaded inference: model loaded + hot GPU counts as generating
+    // even when the server process shows little CPU (the Apple Silicon norm).
+    let gpuMonitor = LLMMonitor(endpoints: [])
+    let loaded: Set<String> = ["llama3.2:3b"]
+    _ = gpuMonitor.fold(models: loaded, contextLength: 8192,
+                        processStates: [], gpuUsage: 0.9)
+    let second = gpuMonitor.fold(models: loaded, contextLength: 8192,
+                                 processStates: [], gpuUsage: 0.9)
+    expect(second.inferenceRunning, "detects GPU-offloaded inference (loaded model + hot GPU)")
+    let cooled = gpuMonitor.fold(models: loaded, contextLength: 8192,
+                                 processStates: [], gpuUsage: 0.1)
+    expect(!cooled.inferenceRunning && cooled.generationJustFinished,
+           "GPU cooling down ends the generation")
+    let noModel = LLMMonitor(endpoints: [])
+    _ = noModel.fold(models: [], contextLength: 0, processStates: [], gpuUsage: 0.9)
+    let hotButEmpty = noModel.fold(models: [], contextLength: 0,
+                                   processStates: [], gpuUsage: 0.9)
+    expect(!hotButEmpty.inferenceRunning,
+           "hot GPU without a loaded model (games etc.) is not inference")
 }
 
 // MARK: - Themes

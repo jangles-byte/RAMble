@@ -45,6 +45,7 @@ public final class LLMMonitor {
     private let session: URLSession
     private var previousModels: Set<String> = []
     private var wasInferring = false
+    private var gpuBusyStreak = 0
     private var tokenRateEMA: Float = 0
     /// Nominal peak local token rate used to scale the intensity estimate.
     private let nominalPeakTokensPerSecond: Float = 120
@@ -60,8 +61,8 @@ public final class LLMMonitor {
     /// Poll all endpoints synchronously (call from a background queue).
     /// `processStates` and `gpuUsage` feed the inference-intensity estimate.
     public func sample(processStates: [WatchedProcessState], gpuUsage: Float) -> Sample {
-        var s = Sample()
         var models: Set<String> = []
+        var contextLength = 0
 
         for endpoint in endpoints {
             guard let data = fetch(endpoint.url) else { continue }
@@ -69,20 +70,37 @@ public final class LLMMonitor {
             case .ollama:
                 let parsed = Self.parseOllamaPS(data)
                 models.formUnion(parsed.models)
-                s.contextLength = max(s.contextLength, parsed.contextLength)
+                contextLength = max(contextLength, parsed.contextLength)
             case .openAICompatible:
                 models.formUnion(Self.parseOpenAIModels(data))
             }
         }
+        return fold(models: models, contextLength: contextLength,
+                    processStates: processStates, gpuUsage: gpuUsage)
+    }
 
+    /// Pure state-folding step, separated from network I/O for testability.
+    public func fold(models: Set<String>, contextLength: Int,
+              processStates: [WatchedProcessState], gpuUsage: Float) -> Sample {
+        var s = Sample()
+        s.contextLength = contextLength
         s.loadedModels = models.sorted()
         s.modelJustLoaded = !models.subtracting(previousModels).isEmpty
         s.modelJustUnloaded = !previousModels.subtracting(models).isEmpty
         previousModels = models
 
         let inferringProcs = processStates.filter { $0.isInferring }
-        s.inferenceRunning = !inferringProcs.isEmpty
-        s.activeGenerations = inferringProcs.count
+        // GPU path: on Apple Silicon the server process barely touches the
+        // CPU while the GPU does the generating. A loaded model + sustained
+        // GPU load is inference, whatever the CPU says.
+        if !models.isEmpty, gpuUsage > 0.45 {
+            gpuBusyStreak += 1
+        } else {
+            gpuBusyStreak = 0
+        }
+        let gpuInferring = gpuBusyStreak >= 2
+        s.inferenceRunning = !inferringProcs.isEmpty || gpuInferring
+        s.activeGenerations = max(inferringProcs.count, gpuInferring ? 1 : 0)
         s.generationJustFinished = wasInferring && !s.inferenceRunning
         wasInferring = s.inferenceRunning
 

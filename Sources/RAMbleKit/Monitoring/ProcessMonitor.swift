@@ -13,8 +13,10 @@ public final class ProcessMonitor {
     /// Case-insensitive substrings matched against the process command name.
     public var watchList: [String]
 
-    /// Sustained CPU above this fraction of one core marks a process as inferring.
-    private let inferenceCPUThreshold: Float = 0.5
+    /// Sustained CPU above this fraction of one core marks a process as
+    /// inferring. Kept low because GPU-offloaded inference (the normal case
+    /// on Apple Silicon) shows only modest CPU on the server process.
+    private let inferenceCPUThreshold: Float = 0.30
     private var inferenceStreak: [String: Int] = [:]
 
     public init(watchList: [String] = ProcessMonitor.defaultWatchList) {
