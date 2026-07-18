@@ -1,6 +1,17 @@
-# RAMble
+<p align="center">
+  <img src="assets/logo.png" width="180" alt="RAMble — a white ram's head on a dark tile">
+</p>
 
-**Watch your Mac think.**
+<h1 align="center">RAMble</h1>
+
+<p align="center"><strong>Watch your Mac think.</strong></p>
+
+<p align="center">
+  <a href="https://github.com/jangles-byte/RAMble/releases/latest"><img src="https://img.shields.io/github/v/release/jangles-byte/RAMble?label=download&color=4c6ef5" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-15%2B-blue" alt="macOS 15+">
+  <img src="https://img.shields.io/badge/Apple%20Silicon-native-8a63d2" alt="Apple Silicon">
+  <img src="https://img.shields.io/badge/Swift%206%20%2B%20Metal-no%20Electron-f05138" alt="Swift 6 + Metal">
+</p>
 
 RAMble is a free, native macOS overlay that turns your system's inner life —
 RAM pressure, CPU, GPU, swap, and your local LLMs — into living, glowing
