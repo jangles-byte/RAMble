@@ -19,6 +19,13 @@ public protocol AnimationPlugin: AnyObject {
     /// Called when the user switches themes while the plugin is active.
     func themeDidChange(_ theme: Theme)
 
+    /// Optional per-plugin trail persistence (0…1) overriding the theme's.
+    /// Plugins built from mostly *static* emitters (e.g. a node graph) should
+    /// return a low value: static emitters otherwise accumulate in place to a
+    /// steady-state brightness of 1/(1−persistence) and blow out the bloom.
+    /// Return nil (default) to use the theme's trail persistence.
+    var preferredTrailPersistence: Float? { get }
+
     /// Called whenever the *screen's* extent in scene coordinates changes
     /// (i.e. when the scale setting moves). The scene box (`bounds` from
     /// `prepare`) holds the structure; `worldMin`…`worldMax` are the real
@@ -30,6 +37,7 @@ public protocol AnimationPlugin: AnyObject {
 public extension AnimationPlugin {
     func themeDidChange(_ theme: Theme) {}
     func worldChanged(worldMin: SIMD2<Float>, worldMax: SIMD2<Float>) {}
+    var preferredTrailPersistence: Float? { nil }
 }
 
 /// Factory + lookup for available animations. Register custom plugins here

@@ -51,11 +51,15 @@ public final class SynapsePlugin: AnimationPlugin {
     private var fireAccumulator: Float = 0
     private var time: Float = 0
 
-    private let nodeCount = 88
-    private let hubCount = 6
+    private let nodeCount = 64
+    private let hubCount = 5
     private let maxSignals = 900
 
     public init() {}
+
+    // Static node emitters would pile up in the trail buffer; keep persistence
+    // low so the signals still streak but the nodes stay crisp.
+    public var preferredTrailPersistence: Float? { 0.5 }
 
     // MARK: - Graph construction
 
@@ -79,15 +83,16 @@ public final class SynapsePlugin: AnimationPlugin {
         edges.removeAll()
         guard bounds.x > 64, bounds.y > 64 else { return }
 
-        // Scatter nodes with a minimum spacing, denser toward the middle.
+        // Scatter nodes with a generous minimum spacing so halos never merge
+        // into blobs, with only a gentle pull toward the middle.
         let margin = min(bounds.x, bounds.y) * 0.07
-        let minDist = min(bounds.x, bounds.y) * 0.055
+        let minDist = min(bounds.x, bounds.y) * 0.085
         var attempts = 0
-        while nodes.count < nodeCount, attempts < nodeCount * 60 {
+        while nodes.count < nodeCount, attempts < nodeCount * 80 {
             attempts += 1
-            // Bias positions toward the center for an organic cluster.
-            let u = (randomFloat(0...1) + randomFloat(0...1)) / 2
-            let v = (randomFloat(0...1) + randomFloat(0...1)) / 2
+            // Slight center bias (blend one uniform with one triangular sample).
+            let u = randomFloat(0...1) * 0.45 + (randomFloat(0...1) + randomFloat(0...1)) / 2 * 0.55
+            let v = randomFloat(0...1) * 0.45 + (randomFloat(0...1) + randomFloat(0...1)) / 2 * 0.55
             let p = SIMD2(margin + u * (bounds.x - margin * 2),
                           margin + v * (bounds.y - margin * 2))
             if nodes.allSatisfy({ simd_distance($0.position, p) > minDist }) {
@@ -107,7 +112,7 @@ public final class SynapsePlugin: AnimationPlugin {
         }
         for i in byCentrality.prefix(hubCount) {
             nodes[i].isHub = true
-            nodes[i].radius *= 1.8
+            nodes[i].radius *= 1.55
         }
 
         // Edges: everyone links to their 2 nearest neighbors; hubs reach out
@@ -241,10 +246,10 @@ public final class SynapsePlugin: AnimationPlugin {
             let excitement = max(nodes[e.a].charge + nodes[e.a].flash,
                                  nodes[e.b].charge + nodes[e.b].flash)
             var c = theme.color(2)
-            c.w = 0.05 + min(excitement, 1) * 0.14
+            c.w = 0.04 + min(excitement, 1) * 0.11
             for dot in e.dots {
-                out.append(Particle(position: dot, color: c, size: 1.0,
-                                    glow: excitement * 0.2))
+                out.append(Particle(position: dot, color: c, size: 0.9,
+                                    glow: excitement * 0.18))
             }
         }
 
@@ -258,28 +263,34 @@ public final class SynapsePlugin: AnimationPlugin {
             let pos = bezier(a, e.control, b, t)
             // Finite-difference tangent for streak orientation.
             let ahead = bezier(a, e.control, b, min(t + 0.03, 1))
-            let velocity = (ahead - pos) * 30 * (s.forward ? 1 : -1)
+            let velocity = (ahead - pos) * 22 * (s.forward ? 1 : -1)
+            // Saturated, small, and hot so it blooms as a dart of light rather
+            // than smearing into a chrome teardrop.
             var c = simd_mix(theme.color(s.colorIndex), theme.calmColor,
-                             SIMD4(repeating: 0.35))
-            c.w = 0.95
+                             SIMD4(repeating: 0.18))
+            c.w = 1.0
             out.append(Particle(position: pos, velocity: velocity, color: c,
-                                size: 2.2 * theme.particleScale, glow: 0.85,
+                                size: 1.5 * theme.particleScale, glow: 1.25,
                                 shape: .streak))
         }
 
         // Nodes: soft halo + colored core; firing nodes flash white-hot.
+        // Kept restrained so the HDR bloom does the glowing, not raw size —
+        // crisp colored nodes over black, not overlapping cotton-wool.
         for n in nodes {
             let excitement = min(n.charge + n.flash, 1.5)
             let wobble = 1 + sin(time * 1.8 + n.wobblePhase) * 0.06
-            var halo = theme.stressColor(renderer.currentState.stress * 0.6)
-            halo.w = 0.05 + excitement * 0.22
+            var halo = simd_mix(theme.color(n.colorIndex),
+                                theme.stressColor(renderer.currentState.stress * 0.6),
+                                SIMD4(repeating: 0.4))
+            halo.w = 0.03 + excitement * 0.10
             out.append(Particle(position: n.position, color: halo,
-                                size: n.radius * 3.2 * wobble,
-                                glow: 0.2 + excitement * 0.5))
+                                size: n.radius * 2.0 * wobble,
+                                glow: 0.15 + excitement * 0.35))
 
             var core = theme.color(n.colorIndex)
-            core = simd_mix(core, SIMD4(1, 1, 1, 1), SIMD4(repeating: n.flash * 0.7))
-            core.w = 0.75 + excitement * 0.25
+            core = simd_mix(core, SIMD4(1, 1, 1, 1), SIMD4(repeating: n.flash * 0.55))
+            core.w = 0.85 + excitement * 0.15
             out.append(Particle(position: n.position, color: core,
                                 size: n.radius * theme.particleScale * wobble,
                                 glow: 0.35 + excitement * 0.9))
