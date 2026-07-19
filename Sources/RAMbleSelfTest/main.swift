@@ -305,6 +305,21 @@ do {
     inspector.stop()
 }
 
+// MARK: - Icon loading (regression: Bundle.module fatalError crashed
+// every distributed copy that wasn't the build machine)
+
+print("Icon")
+do {
+    // These must never trap, even when no resource bundle can be found —
+    // they fall back to a drawn glyph instead.
+    let menu = RamHeadIcon.menuBarImage()
+    expect(menu.size.width > 0 && menu.isTemplate, "menu bar icon renders as a template")
+    let app = RamHeadIcon.appIconImage(size: 128)
+    expect(app.size.width == 128, "app icon renders at the requested size")
+    let plain = RamHeadIcon.image(size: 64)
+    expect(plain.size.width == 64, "plain logo renders at the requested size")
+}
+
 // MARK: - Live monitors (smoke)
 
 print("Monitors (smoke)")

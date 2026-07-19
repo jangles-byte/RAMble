@@ -24,6 +24,11 @@ else
 fi
 # SwiftPM resource bundle (logo artwork) — Bundle.module finds it in Resources.
 cp -R .build/release/RAMble_RAMbleKit.bundle "$APP/Contents/Resources/"
+# Also place the logo directly in Resources. SwiftPM's Bundle.module only
+# looks at the .app root and the builder's own build tree, so relying on the
+# resource bundle alone crashed every copy that wasn't the build machine.
+cp .build/release/RAMble_RAMbleKit.bundle/ram-logo.png "$APP/Contents/Resources/" 2>/dev/null || \
+  cp Sources/RAMbleKit/Resources/ram-logo.png "$APP/Contents/Resources/"
 
 # Generate the ram-head app icon from the in-code vector drawing.
 ICONSET=build/RAMble.iconset
@@ -43,8 +48,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleDisplayName</key>         <string>RAMble</string>
     <key>CFBundlePackageType</key>         <string>APPL</string>
     <key>CFBundleIconFile</key>            <string>RAMble</string>
-    <key>CFBundleShortVersionString</key>  <string>1.6.0</string>
-    <key>CFBundleVersion</key>             <string>7</string>
+    <key>CFBundleShortVersionString</key>  <string>1.6.1</string>
+    <key>CFBundleVersion</key>             <string>8</string>
     <key>LSMinimumSystemVersion</key>      <string>15.0</string>
     <key>LSUIElement</key>                 <true/>
     <key>NSHighResolutionCapable</key>     <true/>

@@ -4,12 +4,45 @@ import AppKit
 /// `Resources/ram-logo.png` — white on transparent, detail lines cut out).
 /// Falls back to a drawn glyph if the resource is ever missing.
 public enum RamHeadIcon {
-    /// The raw logo artwork (white on transparent).
-    public static let artwork: NSImage? = {
-        guard let url = Bundle.module.url(forResource: "ram-logo", withExtension: "png"),
-              let image = NSImage(contentsOf: url) else { return nil }
-        return image
-    }()
+    /// The raw logo artwork (white on transparent), or nil if it can't be
+    /// found — callers fall back to `fallbackGlyph`.
+    ///
+    /// Deliberately does **not** use `Bundle.module`. SwiftPM's generated
+    /// accessor only checks two locations — the root of the .app (we ship
+    /// resources in `Contents/Resources`, the standard place) and an absolute
+    /// path inside the build tree of whoever compiled it — and calls
+    /// `fatalError` otherwise. That crashed every distributed copy on launch
+    /// while working fine on the build machine. This looks in the real
+    /// locations and returns nil instead of trapping.
+    public static let artwork: NSImage? = loadArtwork()
+
+    private static func loadArtwork() -> NSImage? {
+        let name = "ram-logo", ext = "png"
+
+        // 1. Shipped directly into the app bundle's Resources.
+        if let url = Bundle.main.url(forResource: name, withExtension: ext),
+           let image = NSImage(contentsOf: url) { return image }
+
+        // 2. Inside the SwiftPM resource bundle, wherever it actually landed.
+        let bundleName = "RAMble_RAMbleKit.bundle"
+        let roots: [URL?] = [
+            Bundle.main.resourceURL,
+            Bundle.main.bundleURL,
+            Bundle(for: BundleToken.self).resourceURL,
+            Bundle(for: BundleToken.self).bundleURL,
+        ]
+        for root in roots.compactMap({ $0 }) {
+            if let bundle = Bundle(url: root.appendingPathComponent(bundleName)),
+               let url = bundle.url(forResource: name, withExtension: ext),
+               let image = NSImage(contentsOf: url) { return image }
+        }
+
+        // 3. Alongside the module itself (framework-style layout).
+        if let url = Bundle(for: BundleToken.self).url(forResource: name, withExtension: ext),
+           let image = NSImage(contentsOf: url) { return image }
+
+        return nil
+    }
 
     /// Template image for the status bar. Template rendering uses only the
     /// alpha channel, so the cutout eyes/horn details read perfectly in both
@@ -106,3 +139,6 @@ public enum RamHeadIcon {
         }
     }
 }
+
+/// Anchor for `Bundle(for:)` lookups of this module's resources.
+final class BundleToken {}
