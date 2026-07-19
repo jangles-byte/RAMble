@@ -134,7 +134,7 @@ do {
 
 print("Plugins")
 do {
-    let builtIn = ["Synapse", "Plinko", "Galaxy", "Water Tank", "Motherboard", "Factory"]
+    let builtIn = ["Synapse", "Plinko", "Galaxy", "Water Tank", "Motherboard", "Factory", "Rain"]
     expect(Set(PluginRegistry.shared.availableNames).isSuperset(of: builtIn),
            "registry lists all built-in plugins")
     for name in builtIn {
@@ -197,6 +197,28 @@ do {
     let idle = SystemState()
     for _ in 0..<(60 * 20) { synapse.update(state: idle, deltaTime: 1.0 / 60.0) }
     expect(synapse.testCounts.signals < 900, "signal population stays bounded")
+}
+
+// MARK: - Rain
+
+print("Rain")
+do {
+    let rain = RainPlugin()
+    rain.prepare(bounds: SIMD2(1440, 900), theme: Themes.glass)
+    var storm = SystemState()
+    storm.ramPercent = 0.7; storm.stress = 0.8; storm.intensity = 1.4
+    for _ in 0..<(60 * 6) { rain.update(state: storm, deltaTime: 1.0 / 60.0) }
+    let mid = rain.testCounts
+    expect(mid.drops > 0, "rain is falling under load (\(mid.drops) drops)")
+    expect(mid.ripples >= 0 && mid.ripples <= 90, "ripple count stays bounded")
+
+    // Model-load lightning + swap flood shouldn't destabilize it.
+    var flood = storm
+    flood.swapPercent = 0.9; flood.modelJustLoaded = true
+    for _ in 0..<120 { rain.update(state: flood, deltaTime: 1.0 / 60.0) }
+    // Drizzle down to idle: population must drain, not grow forever.
+    for _ in 0..<(60 * 8) { rain.update(state: SystemState(), deltaTime: 1.0 / 60.0) }
+    expect(rain.testCounts.drops < mid.drops + 200, "drop population is bounded as load drops")
 }
 
 // MARK: - Update version compare

@@ -54,6 +54,7 @@ public final class PluginRegistry {
         register(name: "Water Tank") { WaterTankPlugin() }
         register(name: "Motherboard") { MotherboardPlugin() }
         register(name: "Factory") { FactoryPlugin() }
+        register(name: "Rain") { RainPlugin() }
     }
 
     public var availableNames: [String] { factories.map(\.name) }
