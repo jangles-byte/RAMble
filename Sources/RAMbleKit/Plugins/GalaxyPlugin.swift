@@ -89,7 +89,8 @@ public final class GalaxyPlugin: AnimationPlugin {
             c.w *= randomFloat(0.06...0.22)
             return Particle(
                 position: SIMD2(randomFloat(0...bounds.x), randomFloat(0...bounds.y)),
-                color: c, size: randomFloat(0.6...1.4))
+                color: c, size: randomFloat(0.6...1.4),
+                depth: randomFloat(0.7...0.95))
         }
     }
 
@@ -157,7 +158,8 @@ public final class GalaxyPlugin: AnimationPlugin {
                                      sin(w.angle) * w.radius * 0.62)
             var c = theme.color(w.colorIndex)
             c.w *= 0.045
-            out.append(Particle(position: pos, color: c, size: w.size, glow: 0.05))
+            out.append(Particle(position: pos, color: c, size: w.size, glow: 0.05,
+                                depth: sin(w.angle) * 0.5))
         }
 
         let maxR = min(bounds.x, bounds.y) * 0.42
@@ -180,7 +182,8 @@ public final class GalaxyPlugin: AnimationPlugin {
                                 color: color,
                                 size: s.size * theme.particleScale * (0.9 + closeness * 0.4),
                                 glow: closeness * 0.6 + corePulse * 0.3,
-                                shape: speed > 260 ? .streak : .disc))
+                                shape: speed > 260 ? .streak : .disc,
+                                depth: sin(s.angle) * 0.6))
         }
 
         // Core: layered halo, bright when healthy, collapsing dark as the

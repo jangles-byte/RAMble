@@ -15,7 +15,9 @@ public final class SynapsePlugin: AnimationPlugin {
     public let name = "Synapse"
 
     private struct Node {
+        var home: SIMD2<Float>    // anchor; the node floats around this
         var position: SIMD2<Float>
+        var z: Float = 0          // pseudo-3D depth, -1 near … +1 far
         var radius: Float
         var colorIndex: Int       // palette class, like the varied node colors
         var charge: Float = 0     // 0…1 excitement; >= 1 triggers a fire
@@ -24,14 +26,20 @@ public final class SynapsePlugin: AnimationPlugin {
         var edges: [Int] = []     // indices into `edges`
         var isHub: Bool = false
         var wobblePhase: Float = 0
+        // Per-node drift: slow 3D Lissajous float, unique to each node.
+        var driftFreq = SIMD2<Float>(0.1, 0.1)
+        var driftPhase = SIMD2<Float>(0, 0)
+        var zFreq: Float = 0.1
+        var zPhase: Float = 0
+        var zBase: Float = 0
     }
 
+    /// Edges store topology + arc shape only; geometry is evaluated live each
+    /// frame from the floating node positions, so the fibers flex and breathe.
     private struct Edge {
         var a: Int
         var b: Int
-        var control: SIMD2<Float> // quadratic bezier control point (the arc)
-        var length: Float
-        var dots: [SIMD2<Float>]  // precomputed dotted-line sample points
+        var bulge: Float          // perpendicular arc ratio of live length
     }
 
     private struct Signal {
@@ -95,12 +103,18 @@ public final class SynapsePlugin: AnimationPlugin {
             let v = randomFloat(0...1) * 0.45 + (randomFloat(0...1) + randomFloat(0...1)) / 2 * 0.55
             let p = SIMD2(margin + u * (bounds.x - margin * 2),
                           margin + v * (bounds.y - margin * 2))
-            if nodes.allSatisfy({ simd_distance($0.position, p) > minDist }) {
+            if nodes.allSatisfy({ simd_distance($0.home, p) > minDist }) {
                 nodes.append(Node(
+                    home: p,
                     position: p,
                     radius: randomFloat(2.6...4.4),
                     colorIndex: Int.random(in: 0..<max(theme.palette.count, 1)),
-                    wobblePhase: randomFloat(0...(2 * .pi))))
+                    wobblePhase: randomFloat(0...(2 * .pi)),
+                    driftFreq: SIMD2(randomFloat(0.05...0.16), randomFloat(0.05...0.16)),
+                    driftPhase: SIMD2(randomFloat(0...(2 * .pi)), randomFloat(0...(2 * .pi))),
+                    zFreq: randomFloat(0.04...0.11),
+                    zPhase: randomFloat(0...(2 * .pi)),
+                    zBase: randomFloat(-0.5...0.5)))
             }
         }
         guard nodes.count > 8 else { return }
@@ -123,25 +137,10 @@ public final class SynapsePlugin: AnimationPlugin {
             let key = min(i, j) * 100_000 + max(i, j)
             guard !seen.contains(key) else { return }
             seen.insert(key)
-
-            let a = nodes[i].position
-            let b = nodes[j].position
-            let mid = (a + b) / 2
-            let delta = b - a
-            let length = simd_length(delta)
-            let perp = SIMD2(-delta.y, delta.x) / max(length, 1)
-            // Longer fibers arc more, like relaxed cables.
-            let bulge = length * randomFloat(0.10...0.30) * (Bool.random() ? 1 : -1)
-            let control = mid + perp * bulge
-
-            var dots: [SIMD2<Float>] = []
-            let dotCount = max(3, Int(length / 16))
-            for d in 1..<dotCount {
-                dots.append(bezier(a, control, b, Float(d) / Float(dotCount)))
-            }
             let edgeIndex = edges.count
-            edges.append(Edge(a: i, b: j, control: control,
-                              length: max(length * 1.05, 1), dots: dots))
+            // Arc ratio only — geometry evaluates live as the nodes float.
+            edges.append(Edge(a: i, b: j,
+                              bulge: randomFloat(0.10...0.30) * (Bool.random() ? 1 : -1)))
             nodes[i].edges.append(edgeIndex)
             nodes[j].edges.append(edgeIndex)
         }
@@ -158,6 +157,17 @@ public final class SynapsePlugin: AnimationPlugin {
         }
     }
 
+    /// Live edge geometry from the floating node positions.
+    private func edgeGeometry(_ e: Edge)
+    -> (a: SIMD2<Float>, b: SIMD2<Float>, control: SIMD2<Float>, length: Float) {
+        let a = nodes[e.a].position
+        let b = nodes[e.b].position
+        let delta = b - a
+        let len = max(simd_length(delta), 1)
+        let perp = SIMD2(-delta.y, delta.x) / len
+        return (a, b, (a + b) / 2 + perp * e.bulge * len, len * 1.05)
+    }
+
     // MARK: - Simulation
 
     public func update(state: SystemState, deltaTime: Float) {
@@ -166,6 +176,19 @@ public final class SynapsePlugin: AnimationPlugin {
         guard !nodes.isEmpty else { return }
 
         let intensity = max(state.intensity, 0.05)
+
+        // The whole constellation floats: each node wanders a slow, unique
+        // 3D Lissajous orbit around its home. Edges and signals follow live.
+        let floatSpeed = 0.7 + intensity * 0.45 + state.stress * 0.5
+        let amp = min(bounds.x, bounds.y) * 0.030
+        for i in nodes.indices {
+            let n = nodes[i]
+            let a = amp * (n.isHub ? 0.55 : 1.0)
+            nodes[i].position = n.home + SIMD2(
+                sin(time * n.driftFreq.x * floatSpeed + n.driftPhase.x),
+                cos(time * n.driftFreq.y * floatSpeed + n.driftPhase.y)) * a
+            nodes[i].z = max(-1, min(1, n.zBase + sin(time * n.zFreq * floatSpeed + n.zPhase) * 0.45))
+        }
 
         // Spontaneous firing: the network's resting heartbeat plus load.
         var fireRate: Float = (1.5 + state.cpuPercent * 14 + state.gpuPercent * 10)
@@ -199,7 +222,8 @@ public final class SynapsePlugin: AnimationPlugin {
         let speedBoost = (1 + state.stress * 1.6) * (0.5 + intensity * 0.5)
         var arrived: [(node: Int, strength: Float)] = []
         for i in signals.indices {
-            signals[i].t += signals[i].speed * speedBoost * dt / edges[signals[i].edgeIndex].length
+            signals[i].t += signals[i].speed * speedBoost * dt
+                / edgeGeometry(edges[signals[i].edgeIndex]).length
             if signals[i].t >= 1 {
                 let e = edges[signals[i].edgeIndex]
                 let target = signals[i].forward ? e.b : e.a
@@ -241,15 +265,22 @@ public final class SynapsePlugin: AnimationPlugin {
         var out: [Particle] = []
         out.reserveCapacity(edges.count * 8 + nodes.count * 3 + signals.count * 2)
 
-        // Fibers: faint dotted arcs, waking up when an endpoint is excited.
+        // Fibers: faint dotted arcs evaluated live from the floating nodes,
+        // waking up when an endpoint is excited. Depth blends along the arc.
         for e in edges {
             let excitement = max(nodes[e.a].charge + nodes[e.a].flash,
                                  nodes[e.b].charge + nodes[e.b].flash)
             var c = theme.color(2)
             c.w = 0.04 + min(excitement, 1) * 0.11
-            for dot in e.dots {
-                out.append(Particle(position: dot, color: c, size: 0.9,
-                                    glow: excitement * 0.18))
+            let g = edgeGeometry(e)
+            let za = nodes[e.a].z, zb = nodes[e.b].z
+            let dotCount = max(3, Int(g.length / 16))
+            for d in 1..<dotCount {
+                let t = Float(d) / Float(dotCount)
+                out.append(Particle(position: bezier(g.a, g.control, g.b, t),
+                                    color: c, size: 0.9,
+                                    glow: excitement * 0.18,
+                                    depth: lerp(za, zb, t)))
             }
         }
 
@@ -258,12 +289,12 @@ public final class SynapsePlugin: AnimationPlugin {
         for s in signals {
             let e = edges[s.edgeIndex]
             let t = s.forward ? s.t : 1 - s.t
-            let a = nodes[e.a].position
-            let b = nodes[e.b].position
-            let pos = bezier(a, e.control, b, t)
+            let g = edgeGeometry(e)
+            let pos = bezier(g.a, g.control, g.b, t)
             // Finite-difference tangent for streak orientation.
-            let ahead = bezier(a, e.control, b, min(t + 0.03, 1))
+            let ahead = bezier(g.a, g.control, g.b, min(t + 0.03, 1))
             let velocity = (ahead - pos) * 22 * (s.forward ? 1 : -1)
+            let signalDepth = lerp(nodes[e.a].z, nodes[e.b].z, t)
             // Saturated, small, and hot so it blooms as a dart of light rather
             // than smearing into a chrome teardrop.
             var c = simd_mix(theme.color(s.colorIndex), theme.calmColor,
@@ -271,7 +302,7 @@ public final class SynapsePlugin: AnimationPlugin {
             c.w = 1.0
             out.append(Particle(position: pos, velocity: velocity, color: c,
                                 size: 1.5 * theme.particleScale, glow: 1.25,
-                                shape: .streak))
+                                shape: .streak, depth: signalDepth))
         }
 
         // Nodes: soft halo + colored core; firing nodes flash white-hot.
@@ -286,14 +317,14 @@ public final class SynapsePlugin: AnimationPlugin {
             halo.w = 0.03 + excitement * 0.10
             out.append(Particle(position: n.position, color: halo,
                                 size: n.radius * 2.0 * wobble,
-                                glow: 0.15 + excitement * 0.35))
+                                glow: 0.15 + excitement * 0.35, depth: n.z))
 
             var core = theme.color(n.colorIndex)
             core = simd_mix(core, SIMD4(1, 1, 1, 1), SIMD4(repeating: n.flash * 0.55))
             core.w = 0.85 + excitement * 0.15
             out.append(Particle(position: n.position, color: core,
                                 size: n.radius * theme.particleScale * wobble,
-                                glow: 0.35 + excitement * 0.9))
+                                glow: 0.35 + excitement * 0.9, depth: n.z))
         }
         renderer.submit(out)
     }

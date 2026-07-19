@@ -12,7 +12,9 @@ public struct Particle {
     public var size: Float              // radius in points
     public var glow: Float              // 0…1 extra emission
     public var shape: Shape
-    private var _pad: Float = 0
+    /// Pseudo-3D depth: -1 (near, larger/brighter) … +1 (far, smaller/fogged).
+    /// 0 sits on the screen plane. Drives perspective, fog, and parallax.
+    public var depth: Float = 0
 
     public enum Shape: Float {
         case disc = 0
@@ -21,13 +23,15 @@ public struct Particle {
     }
 
     public init(position: SIMD2<Float>, velocity: SIMD2<Float> = .zero,
-                color: SIMD4<Float>, size: Float, glow: Float = 0, shape: Shape = .disc) {
+                color: SIMD4<Float>, size: Float, glow: Float = 0, shape: Shape = .disc,
+                depth: Float = 0) {
         self.position = position
         self.velocity = velocity
         self.color = color
         self.size = size
         self.glow = glow
         self.shape = shape
+        self.depth = depth
     }
 }
 
@@ -36,6 +40,7 @@ struct SceneUniforms {
     var globalAlpha: Float
     var time: Float
     var sceneScale: Float
+    var camOffset: SIMD2<Float>
 }
 
 struct CompositeUniforms {
@@ -251,10 +256,13 @@ public final class Renderer: NSObject, MTKViewDelegate {
             }
         }
 
+        // Slow orbital sway: even a static scene breathes via parallax.
+        let t = Float(now - startTime)
         let uniforms = SceneUniforms(viewport: bounds,
                                      globalAlpha: globalAlpha,
-                                     time: Float(now - startTime),
-                                     sceneScale: max(sceneScale, 0.05))
+                                     time: t,
+                                     sceneScale: max(sceneScale, 0.05),
+                                     camOffset: SIMD2(sin(t * 0.11), cos(t * 0.083)))
 
         encodeFrame(commandBuffer, particles: buffer, count: count, uniforms: uniforms,
                     into: view.currentRenderPassDescriptor, target: nil)
@@ -382,7 +390,8 @@ public final class Renderer: NSObject, MTKViewDelegate {
             }
             guard let cb = commandQueue.makeCommandBuffer() else { return nil }
             let uniforms = SceneUniforms(viewport: bounds, globalAlpha: 1,
-                                         time: Float(0), sceneScale: 1)
+                                         time: Float(0), sceneScale: 1,
+                                         camOffset: .zero)
             encodeFrame(cb, particles: buffer, count: count, uniforms: uniforms,
                         into: nil, target: target)
             cb.commit()

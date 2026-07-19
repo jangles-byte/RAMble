@@ -12,6 +12,7 @@ public final class PlinkoPlugin: AnimationPlugin {
         var velocity: SIMD2<Float>
         var colorIndex: Int
         var radius: Float
+        var depth: Float = 0   // pseudo-3D lane the ball falls in
         var settled: Float = 0        // seconds spent nearly motionless (jam factor)
         var isOverflow: Bool = false  // swap spill: glows red, falls off-screen
     }
@@ -22,9 +23,10 @@ public final class PlinkoPlugin: AnimationPlugin {
     private var theme = Themes.glass
 
     /// Seconds a ball may sit still before fading out (so nothing piles up).
-    private let settleDespawn: Float = 5
-    private let fadeDuration: Float = 1
+    private let settleDespawn: Float = 2.0
+    private let fadeDuration: Float = 0.7
     private var pegs: [SIMD2<Float>] = []
+    private var pegDepths: [Float] = []
     private var pegHeat: [Float] = []   // per-peg impact flash, decays fast
     private var pegRadius: Float = 5
     private var balls: [Ball] = []
@@ -56,6 +58,7 @@ public final class PlinkoPlugin: AnimationPlugin {
 
     private func buildPegs() {
         pegs.removeAll()
+        pegDepths.removeAll()
         let rows = 9
         let usableHeight = bounds.y * 0.62
         let top = bounds.y * 0.86
@@ -68,7 +71,11 @@ public final class PlinkoPlugin: AnimationPlugin {
             let startX = bounds.x * 0.1 + (row % 2 == 0 ? 0 : spacing * 0.5)
             for i in 0..<count {
                 let x = startX + Float(i) * spacing
-                if x < bounds.x * 0.95 { pegs.append(SIMD2(x, y)) }
+                if x < bounds.x * 0.95 {
+                    pegs.append(SIMD2(x, y))
+                    // Alternate rows sit at different depths for parallax.
+                    pegDepths.append(row % 2 == 0 ? 0.35 : -0.18)
+                }
             }
         }
         pegHeat = Array(repeating: 0, count: pegs.count)
@@ -86,14 +93,18 @@ public final class PlinkoPlugin: AnimationPlugin {
         let intensity = max(state.intensity, 0.05)
         let targetPopulation = min(Float(maxBalls),
             Float(maxBalls) * (0.10 + state.ramPercent * 0.70) * intensity)
-        let deficit = max(0, targetPopulation - Float(balls.count))
+        // Settled (fading) balls don't count toward the population — the
+        // stream keeps flowing while the floor drains.
+        let activeCount = balls.reduce(into: 0) { if $1.settled < 0.4 { $0 += 1 } }
+        let deficit = max(0, targetPopulation - Float(activeCount))
         var spawnRate = min(deficit * 0.25, 40 * intensity)
             + (3 + state.ramPercent * 20) * intensity
         if state.inferenceRunning {
             spawnRate += min(state.tokensPerSecond, 60) * 0.5 * intensity
         }
         spawnAccumulator += spawnRate * dt
-        while spawnAccumulator >= 1, Float(balls.count) < targetPopulation {
+        while spawnAccumulator >= 1, Float(activeCount) < targetPopulation,
+              balls.count < maxBalls {
             spawnAccumulator -= 1
             spawnBall(swapActive: state.swapPercent > 0.05)
         }
@@ -193,7 +204,8 @@ public final class PlinkoPlugin: AnimationPlugin {
                             bounds.y + radius * 2),
             velocity: SIMD2(randomFloat(-20...20), randomFloat(-40...(-10))),
             colorIndex: Int.random(in: 0..<max(theme.palette.count, 1)),
-            radius: radius))
+            radius: radius,
+            depth: randomFloat(-0.55...0.55)))
     }
 
     private func resolveBallCollisions(strength: Float) {
@@ -240,7 +252,8 @@ public final class PlinkoPlugin: AnimationPlugin {
             c.w = 0.55 + heat * 0.45
             out.append(Particle(position: peg, color: c,
                                 size: pegRadius * (1 + heat * 0.5),
-                                glow: 0.2 + pegPulse * 0.8 + heat))
+                                glow: 0.2 + pegPulse * 0.8 + heat,
+                                depth: i < pegDepths.count ? pegDepths[i] : 0))
         }
 
         for b in balls {
@@ -256,12 +269,12 @@ public final class PlinkoPlugin: AnimationPlugin {
             out.append(Particle(position: b.position, velocity: b.velocity, color: color,
                                 size: b.radius * theme.particleScale,
                                 glow: b.isOverflow ? 0.9 : 0.35 + jam * 0.3,
-                                shape: fast ? .streak : .disc))
+                                shape: fast ? .streak : .disc, depth: b.depth))
             // Bright inner core gives the glass-marble look.
             var core = color; core.w = min(1, color.w * 1.2)
             out.append(Particle(position: b.position, color: core,
                                 size: b.radius * theme.particleScale * 0.45,
-                                glow: 0.8))
+                                glow: 0.8, depth: b.depth))
         }
         renderer.submit(out)
     }

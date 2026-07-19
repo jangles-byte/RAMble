@@ -176,12 +176,20 @@ public final class MotherboardPlugin: AnimationPlugin {
 
         // Trace outlines as dim dotted paths.
         var traceColor = theme.color(2); traceColor.w *= 0.16
+        func layerDepth(_ kind: Trace.Kind) -> Float {
+            switch kind {
+            case .coreToGPU: return -0.25
+            case .coreToRAM: return 0
+            case .ramToDisk: return 0.3
+            }
+        }
         for trace in traces {
             var d: Float = 0
             let step: Float = 12
             while d < trace.totalLength {
                 out.append(Particle(position: trace.position(at: d),
-                                    color: traceColor, size: 1.3))
+                                    color: traceColor, size: 1.3,
+                                    depth: layerDepth(trace.kind)))
                 d += step
             }
         }
@@ -245,7 +253,8 @@ public final class MotherboardPlugin: AnimationPlugin {
             c.w *= 0.9
             out.append(Particle(position: pos, color: c,
                                 size: 2.6 * theme.particleScale,
-                                glow: 0.4 + jam * 0.4))
+                                glow: 0.4 + jam * 0.4,
+                                depth: layerDepth(trace.kind)))
         }
         renderer.submit(out)
     }

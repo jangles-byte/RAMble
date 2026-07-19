@@ -228,11 +228,12 @@ public final class FactoryPlugin: AnimationPlugin {
 
         // Belts: dotted lines.
         var beltColor = theme.color(2); beltColor.w *= 0.2
-        for belt in belts {
+        for (bi, belt) in belts.enumerated() {
             let count = Int(belt.length / 12)
+            let bd = Float(bi) * 0.25 - 0.25
             for i in 0...count {
                 out.append(Particle(position: belt.point(Float(i) / Float(max(count, 1))),
-                                    color: beltColor, size: 1.4))
+                                    color: beltColor, size: 1.4, depth: bd))
             }
         }
 
@@ -291,7 +292,8 @@ public final class FactoryPlugin: AnimationPlugin {
             color.w *= 0.9 * fade
             out.append(Particle(position: c.position, velocity: c.velocity,
                                 color: color, size: 3.8 * theme.particleScale,
-                                glow: c.falling ? 0.8 : 0.2 + jam * 0.3, shape: .square))
+                                glow: c.falling ? 0.8 : 0.2 + jam * 0.3, shape: .square,
+                                depth: Float(min(c.beltIndex, 2)) * 0.25 - 0.25))
         }
         renderer.submit(out)
     }

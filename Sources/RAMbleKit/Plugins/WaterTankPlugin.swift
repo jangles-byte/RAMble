@@ -203,7 +203,8 @@ public final class WaterTankPlugin: AnimationPlugin {
         for b in bubbles {
             var c = theme.calmColor
             c.w *= 0.35
-            out.append(Particle(position: b.position, color: c, size: b.size, glow: 0.3))
+            out.append(Particle(position: b.position, color: c, size: b.size, glow: 0.3,
+                                depth: -0.2))
         }
 
         // Surface: bright wave crest following the simulated columns, with
@@ -235,7 +236,8 @@ public final class WaterTankPlugin: AnimationPlugin {
             c.w *= min(d.life, 1) * 0.9
             out.append(Particle(position: d.position, velocity: d.velocity, color: c,
                                 size: d.overflow ? 3.0 : 2.0,
-                                glow: d.overflow ? 0.9 : 0.4, shape: .streak))
+                                glow: d.overflow ? 0.9 : 0.4, shape: .streak,
+                                depth: -0.3))
         }
         renderer.submit(out)
     }

@@ -9,6 +9,53 @@ import Foundation
 /// filmic (ACES) curve plus a cinematic post-grade (vignette + subtle
 /// chromatic aberration) before writing straight to the transparent drawable.
 enum ShaderSource {
+    /// Preamble prepended to every `FullscreenShaderPlugin`'s fragment source.
+    /// Provides the shared uniform layout, a fullscreen-triangle vertex stage
+    /// (`sp_vertex`), and value-noise / fbm helpers so shader plugins stay
+    /// short. A plugin only writes `fragment float4 <entry>(SPOut in [[stage_in]],
+    /// constant SPUniforms &u [[buffer(0)]]) { ... }`.
+    static let fullscreenPreamble = """
+    #include <metal_stdlib>
+    using namespace metal;
+
+    struct SPUniforms {
+        float2 resolution;
+        float time, ram, cpu, gpu, swap, pressure, stress, tokens, inference, intensity;
+        float pad0, pad1, pad2;
+    };
+    struct SPOut { float4 position [[position]]; float2 uv; };
+
+    vertex SPOut sp_vertex(uint vid [[vertex_id]]) {
+        const float2 pos[3] = { float2(-1,-1), float2(3,-1), float2(-1,3) };
+        SPOut o;
+        o.position = float4(pos[vid], 0, 1);
+        o.uv = pos[vid] * 0.5 + 0.5;
+        o.uv.y = 1.0 - o.uv.y;
+        return o;
+    }
+
+    static inline float sp_hash21(float2 p) {
+        p = fract(p * float2(123.34, 345.45));
+        p += dot(p, p + 34.345);
+        return fract(p.x * p.y);
+    }
+    static inline float sp_vnoise(float2 p) {
+        float2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = sp_hash21(i), b = sp_hash21(i + float2(1, 0));
+        float c = sp_hash21(i + float2(0, 1)), d = sp_hash21(i + float2(1, 1));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    }
+    static inline float sp_fbm(float2 p) {
+        float s = 0.0, a = 0.5;
+        for (int i = 0; i < 5; i++) { s += a * sp_vnoise(p); p = p * 2.02 + float2(3.1, 1.7); a *= 0.5; }
+        return s;
+    }
+    static inline float3 sp_hue(float3 base, float3 warn, float t) {
+        return mix(base, warn, clamp(t, 0.0, 1.0));
+    }
+    """
+
     static let library = """
     #include <metal_stdlib>
     using namespace metal;
@@ -22,7 +69,7 @@ enum ShaderSource {
         float  size;       // radius in points
         float  glow;       // 0..1 extra emission
         float  shape;      // 0 = disc, 1 = square, 2 = streak
-        float  _pad;
+        float  depth;      // -1 (near) … +1 (far); 0 = screen plane
     };
 
     struct SceneUniforms {
@@ -30,6 +77,7 @@ enum ShaderSource {
         float  globalAlpha;
         float  time;
         float  sceneScale;     // applied in NDC space → scales from center
+        float2 camOffset;      // slow orbital camera sway (unit vector-ish)
     };
 
     struct VOut {
@@ -66,8 +114,19 @@ enum ShaderSource {
             halfSize = float2(p.size * pad * (1.0 + min(speed * 0.015, 3.0)),
                               p.size * pad * 0.5);
         }
-        float2 world = p.position + axisX * corner.x * halfSize.x
-                                  + axisY * corner.y * halfSize.y;
+        // Pseudo-3D: perspective scale around the screen center, distance fog,
+        // and parallax from the drifting camera. Near objects are bigger,
+        // brighter, and sway more; far ones recede and dim.
+        float d = clamp(p.depth, -1.0, 1.0);
+        float t01 = (d + 1.0) * 0.5;             // 0 = near … 1 = far
+        float persp = mix(1.30, 0.62, t01);
+        float2 center = u.viewport * 0.5;
+        float2 basePos = center + (p.position - center) * persp
+                       - u.camOffset * d * 22.0;  // parallax
+        halfSize *= persp;
+
+        float2 world = basePos + axisX * corner.x * halfSize.x
+                               + axisY * corner.y * halfSize.y;
         float2 ndc = world / u.viewport * 2.0 - 1.0;
         // NDC origin is the screen center, so scaling here grows/shrinks the
         // whole scene evenly toward all four corners.
@@ -77,7 +136,8 @@ enum ShaderSource {
         out.position = float4(ndc.x, ndc.y, 0, 1);
         out.uv = corner * pad;     // uv now spans ±pad; radius 1.0 = particle edge
         out.color = p.color;
-        out.color.a *= u.globalAlpha;
+        out.color.a *= u.globalAlpha * mix(1.0, 0.55, t01);   // depth fog
+        out.color.rgb *= mix(1.05, 0.72, t01);
         out.glow = p.glow;
         out.shape = p.shape;
         return out;
