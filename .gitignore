@@ -1,4 +1,6 @@
 .build/
+.build-x86/
+.build*/
 build/
 .DS_Store
 *.xcodeproj
