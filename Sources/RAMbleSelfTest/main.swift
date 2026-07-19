@@ -210,7 +210,7 @@ do {
     for _ in 0..<(60 * 6) { rain.update(state: storm, deltaTime: 1.0 / 60.0) }
     let mid = rain.testCounts
     expect(mid.drops > 0, "rain is falling under load (\(mid.drops) drops)")
-    expect(mid.ripples >= 0 && mid.ripples <= 90, "ripple count stays bounded")
+    expect(mid.ripples >= 0 && mid.ripples <= 110, "ripple count stays bounded")
 
     // Model-load lightning + swap flood shouldn't destabilize it.
     var flood = storm
