@@ -65,7 +65,12 @@ public final class MemoryMonitor {
             s.wiredBytes = UInt64(vmStats.wire_count) * pageSize
             s.compressedBytes = UInt64(vmStats.compressor_page_count) * pageSize
             s.cachedBytes = UInt64(vmStats.external_page_count) * pageSize
-            let appMemory = UInt64(vmStats.internal_page_count) * pageSize
+            // Match Activity Monitor's "Memory Used": App Memory + Wired +
+            // Compressed, where App Memory excludes purgeable pages (they can
+            // be reclaimed instantly and aren't real pressure).
+            let purgeable = UInt64(vmStats.purgeable_count)
+            let internalPages = UInt64(vmStats.internal_page_count)
+            let appMemory = (internalPages > purgeable ? internalPages - purgeable : 0) * pageSize
             s.usedBytes = appMemory + s.wiredBytes + s.compressedBytes
 
             let pageIns = UInt64(vmStats.pageins)

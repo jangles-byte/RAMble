@@ -5,21 +5,29 @@ import SwiftUI
 struct MeterHUDView: View {
     @ObservedObject var stateEngine: StateEngine
     @ObservedObject var settings: SettingsStore
+    /// Called when the user clicks a meter — opens the detail window.
+    var onSelect: ((MetricKind) -> Void)?
 
     var body: some View {
         let s = stateEngine.state
         VStack(alignment: .leading, spacing: 7) {
-            meter("RAM", value: s.ramPercent)
-            meter("PRESS", value: s.memoryPressure)
-            meter("SWAP", value: s.swapPercent)
-            meter("CPU", value: s.cpuPercent)
-            meter("GPU", value: s.gpuPercent)
-            meter("DISK", value: s.diskPressure)
+            meter("RAM", value: s.ramPercent, kind: .ram)
+            meter("PRESS", value: s.memoryPressure, kind: .pressure)
+            meter("SWAP", value: s.swapPercent, kind: .swap)
+            meter("CPU", value: s.cpuPercent, kind: .cpu)
+            meter("GPU", value: s.gpuPercent, kind: .gpu)
+            meter("DISK", value: s.diskPressure, kind: .disk)
             Divider().overlay(.white.opacity(0.15))
-            meter("STRESS", value: s.stress, emphasized: true)
+            meter("STRESS", value: s.stress, kind: .stress, emphasized: true)
             // Always present so the panel keeps a stable size; dims when idle.
-            meter("TOK/S", value: min(s.tokensPerSecond / 120, 1), accent: .cyan)
+            meter("TOK/S", value: min(s.tokensPerSecond / 120, 1), kind: .tokens, accent: .cyan)
                 .opacity(s.inferenceRunning ? 1 : 0.3)
+            if onSelect != nil {
+                Text("click a bar for details")
+                    .font(.system(size: 7.5, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.28))
+                    .padding(.top, 1)
+            }
         }
         .padding(12)
         .frame(width: 170)
@@ -33,10 +41,10 @@ struct MeterHUDView: View {
         .animation(.easeOut(duration: 0.5), value: s.stress)
     }
 
-    private func meter(_ label: String, value: Float,
+    private func meter(_ label: String, value: Float, kind: MetricKind,
                        emphasized: Bool = false, accent: Color? = nil) -> some View {
         let v = CGFloat(min(max(value, 0), 1))
-        return HStack(spacing: 8) {
+        let row = HStack(spacing: 8) {
             Text(label)
                 .font(.system(size: 9, weight: emphasized ? .bold : .medium,
                               design: .monospaced))
@@ -53,6 +61,16 @@ struct MeterHUDView: View {
                 }
             }
             .frame(height: emphasized ? 7 : 5)
+        }
+        .contentShape(Rectangle())   // whole row is the hit target
+
+        return Group {
+            if let onSelect {
+                Button { onSelect(kind) } label: { row }
+                    .buttonStyle(.plain)
+            } else {
+                row
+            }
         }
     }
 

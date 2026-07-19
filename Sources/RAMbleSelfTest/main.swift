@@ -254,6 +254,35 @@ do {
            "fresh balls are still falling after 90s of stress")
 }
 
+// MARK: - Process inspector
+
+print("ProcessInspector")
+do {
+    // Attribution rules: CPU/memory metrics are attributable, GPU/disk aren't.
+    expect(MetricKind.cpu.attributable && MetricKind.ram.attributable,
+           "CPU and RAM are attributable")
+    expect(!MetricKind.gpu.attributable && !MetricKind.disk.attributable,
+           "GPU and disk have no public per-process API")
+    expect(MetricKind.cpu.sortByCPU && !MetricKind.ram.sortByCPU,
+           "CPU sorts by cpu, RAM sorts by memory")
+
+    let procs = ProcessInspector.sampleProcesses()
+    expect(!procs.isEmpty, "inspector lists running processes (\(procs.count))")
+    expect(procs.contains { $0.name.contains("launchd") }, "sees launchd")
+    let topMem = ProcessInspector.sorted(procs, for: .ram, limit: 5)
+    expect(topMem.count <= 5 && (topMem.first?.rssBytes ?? 0) >= (topMem.last?.rssBytes ?? 0),
+           "memory list is sorted descending")
+    let topCPU = ProcessInspector.sorted(procs, for: .cpu, limit: 5)
+    expect((topCPU.first?.cpuPercent ?? 0) >= (topCPU.last?.cpuPercent ?? 0),
+           "cpu list is sorted descending")
+    let inspector = ProcessInspector()
+
+    // Terminate must refuse pid ≤ 1 and self — no process is harmed here.
+    expect(!inspector.terminate(pid: 1, force: false), "refuses to kill launchd (pid 1)")
+    expect(!inspector.terminate(pid: 0, force: false), "refuses pid 0")
+    inspector.stop()
+}
+
 // MARK: - Live monitors (smoke)
 
 print("Monitors (smoke)")

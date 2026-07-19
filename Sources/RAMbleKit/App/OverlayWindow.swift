@@ -31,6 +31,7 @@ final class OverlayController {
     private var overlays: [CGDirectDisplayID: (window: OverlayWindow, view: MTKView,
                                                renderer: Renderer, meters: MeterPanel)] = [:]
     private var cancellables: Set<AnyCancellable> = []
+    private lazy var detailController = MeterDetailWindowController(stateEngine: stateEngine)
 
     init(stateEngine: StateEngine, settings: SettingsStore) {
         self.stateEngine = stateEngine
@@ -89,7 +90,8 @@ final class OverlayController {
                 // Meters live in their own tiny draggable window so the main
                 // overlay can stay fully click-through.
                 let hosting = NSHostingView(rootView: MeterHUDView(
-                    stateEngine: stateEngine, settings: settings))
+                    stateEngine: stateEngine, settings: settings,
+                    onSelect: { [weak self] kind in self?.detailController.show(kind) }))
                 let meters = MeterPanel(content: hosting)
                 meters.onMoved = { [weak self] origin in
                     self?.settings.metersPositions["\(id)"] =
