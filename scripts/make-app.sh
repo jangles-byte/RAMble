@@ -4,19 +4,31 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Build both slices so Intel Macs can run it too. (`swift build --arch`
+# needs full Xcode; cross-compiling each slice works with Command Line Tools.)
 swift build -c release
+X86_OK=1
+swift build -c release --scratch-path .build-x86 \
+  -Xswiftc -target -Xswiftc x86_64-apple-macos15.0 \
+  -Xcc -target -Xcc x86_64-apple-macos15.0 || X86_OK=0
 
 APP=build/RAMble.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/RAMble "$APP/Contents/MacOS/RAMble"
+if [[ "$X86_OK" == "1" && -f .build-x86/release/RAMble ]]; then
+  lipo -create .build/release/RAMble .build-x86/release/RAMble \
+       -output "$APP/Contents/MacOS/RAMble"
+else
+  echo "warning: x86_64 slice unavailable — shipping Apple Silicon only"
+  cp .build/release/RAMble "$APP/Contents/MacOS/RAMble"
+fi
 # SwiftPM resource bundle (logo artwork) — Bundle.module finds it in Resources.
 cp -R .build/release/RAMble_RAMbleKit.bundle "$APP/Contents/Resources/"
 
 # Generate the ram-head app icon from the in-code vector drawing.
 ICONSET=build/RAMble.iconset
 rm -rf "$ICONSET"
-.build/release/RAMble --render-icon "$ICONSET"
+"$APP/Contents/MacOS/RAMble" --render-icon "$ICONSET"
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/RAMble.icns"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -31,8 +43,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleDisplayName</key>         <string>RAMble</string>
     <key>CFBundlePackageType</key>         <string>APPL</string>
     <key>CFBundleIconFile</key>            <string>RAMble</string>
-    <key>CFBundleShortVersionString</key>  <string>1.5.0</string>
-    <key>CFBundleVersion</key>             <string>6</string>
+    <key>CFBundleShortVersionString</key>  <string>1.6.0</string>
+    <key>CFBundleVersion</key>             <string>7</string>
     <key>LSMinimumSystemVersion</key>      <string>15.0</string>
     <key>LSUIElement</key>                 <true/>
     <key>NSHighResolutionCapable</key>     <true/>

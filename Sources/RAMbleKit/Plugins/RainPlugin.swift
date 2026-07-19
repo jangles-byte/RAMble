@@ -82,7 +82,7 @@ public final class RainPlugin: AnimationPlugin {
 
     // MARK: - Ground-plane perspective
 
-    private var groundBottom: Float { worldMin.y + (worldMax.y - worldMin.y) * 0.02 }
+    private var groundBottom: Float { worldMin.y + (worldMax.y - worldMin.y) * 0.05 }
     private func horizonTarget(_ s: SystemState) -> Float {
         worldMin.y + (worldMax.y - worldMin.y) * (0.38 + s.swapPercent * 0.08)
     }
@@ -91,9 +91,9 @@ public final class RainPlugin: AnimationPlugin {
     /// Foreshorten X toward center as things recede, for a vanishing-point feel.
     private func perspX(_ x: Float, _ d: Float) -> Float {
         let c = (worldMin.x + worldMax.x) * 0.5
-        return lerp(x, c + (x - c) * 0.68, d)
+        return lerp(x, c + (x - c) * 0.38, d)
     }
-    private func sizeScale(_ d: Float) -> Float { lerp(2.1, 0.55, d) }
+    private func sizeScale(_ d: Float) -> Float { lerp(1.6, 0.5, d) }
     private func dim(_ d: Float) -> Float { lerp(1.0, 0.5, d) }
 
     public func update(state: SystemState, deltaTime: Float) {
@@ -120,7 +120,7 @@ public final class RainPlugin: AnimationPlugin {
         spawnAccumulator += rate * dt
         while spawnAccumulator >= 1, drops.count < maxDrops {
             spawnAccumulator -= 1
-            let d = randomFloat(0...1)
+            let d = sqrt(randomFloat(0...1))
             drops.append(Drop(
                 position: SIMD2(randomFloat((worldMin.x - 80)...(worldMax.x + 80)),
                                 worldMax.y + randomFloat(0...100)),
@@ -162,13 +162,13 @@ public final class RainPlugin: AnimationPlugin {
         let s = sizeScale(d)
         if ripples.count < 120 {
             ripples.append(Ripple(center: SIMD2(worldX, landingY(d)), d: d,
-                                  radius: 2, maxRadius: (14 + 26 * (1 - d))))
+                                  radius: 2, maxRadius: (10 + 20 * (1 - d))))
         }
         // Splash crown: a fan of droplets thrown up, scaled by nearness.
-        let count = Int((1.5 - d) * 5) + 2
+        let count = Int((1.2 - d) * 3) + 1
         for _ in 0..<count where splashes.count < 500 {
             let ang = randomFloat(Float.pi * 0.30 ... Float.pi * 0.70)
-            let spd = randomFloat(60...170) * s * 0.7
+            let spd = randomFloat(45...120) * s * 0.55
             splashes.append(Splash(
                 position: SIMD2(worldX + randomFloat(-2...2), landingY(d)),
                 velocity: SIMD2(cos(ang) * spd * (Bool.random() ? 1 : -1), sin(ang) * spd),

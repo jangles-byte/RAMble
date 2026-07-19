@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/jangles-byte/RAMble/releases/latest"><img src="https://img.shields.io/github/v/release/jangles-byte/RAMble?label=download&color=4c6ef5" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-blue" alt="macOS 15+">
-  <img src="https://img.shields.io/badge/Apple%20Silicon-native-8a63d2" alt="Apple Silicon">
+  <img src="https://img.shields.io/badge/Universal-Apple%20Silicon%20%2B%20Intel-8a63d2" alt="Universal binary">
   <img src="https://img.shields.io/badge/Swift%206%20%2B%20Metal-no%20Electron-f05138" alt="Swift 6 + Metal">
 </p>
 
@@ -22,7 +22,7 @@ graphs, no numbers — you just know, at a glance, like watching weather.
 It sits behind your windows (or in front, your call), never catches a click,
 and idles light enough to leave on all day.
 
-- **Native** — Swift + Metal, Apple Silicon. No Electron, no browser, no ports.
+- **Native** — Swift + Metal, universal (Apple Silicon + Intel). No Electron, no browser, no ports.
 - **Private** — reads public system counters and localhost only. Nothing
   leaves your machine, no analytics, no accounts.
 - **Open** — MIT-spirited source, plugin SDK, ~zero dependencies.
@@ -39,6 +39,7 @@ and idles light enough to leave on all day.
 | **Water Tank** | A glass reservoir. Water level = RAM. Pressure whips up the waves, CPU simmers bubbles from below, swap overflows the rim in red. |
 | **Motherboard** | Data packets route between CPU cores, RAM modules, GPU, and disk. Congestion backs traffic up along the traces; jammed packets buzz; swap opens red packet routes to disk. |
 | **Factory** | Conveyor belts, spinning gears (P-cores drive the big ones), machines that fall behind under pressure so crates pile up — and get rejected off the line when you hit swap. |
+| **Rain** | A storm on a receding ground plane. Drops land big and bright at the front, small and dim toward the horizon, each throwing a splash crown and ripple. Load drives the downpour, wind slants it, and lightning strikes as the gauges climb. |
 
 Seven themes (Glass, Cyberpunk, Minimal, Synthwave, Terminal, Dark, Light)
 restyle everything, and an **Intensity slider** runs the whole show from
@@ -68,20 +69,33 @@ slow-drip-zen to full chaos.
 1. Grab **`RAMble.app.zip`** from the
    [latest release](https://github.com/jangles-byte/RAMble/releases/latest).
 2. Unzip it and drag **RAMble.app** into your **Applications** folder.
-3. **First launch:** right-click (or Control-click) RAMble.app and choose
-   **Open**, then **Open** again in the dialog. This is only needed once —
-   macOS asks because the app is community-built rather than
-   Apple-notarized. (If macOS still refuses, run
-   `xattr -dr com.apple.quarantine /Applications/RAMble.app` in Terminal
-   and open it again.)
+3. **Run this one command in Terminal — you almost certainly need it:**
 
-That's it. Look for the **ram-head icon in your menu bar** — RAMble has no
-Dock icon and no window; the menu bar icon is the whole interface.
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/RAMble.app
+   ```
+
+4. Now open RAMble normally. A **welcome window** confirms it's running.
+
+> **Why step 3?** RAMble is open-source and signed ad-hoc rather than with a
+> $99/yr Apple Developer ID, so it isn't notarized. macOS quarantines
+> anything downloaded from the internet, and for un-notarized apps Sequoia
+> often reports **"RAMble is damaged and can't be opened"** — which is
+> misleading; nothing is damaged. The command above just removes the
+> quarantine flag. Right-click → Open no longer reliably bypasses this on
+> macOS 15+, so use the command. Building from source (Option 2) avoids the
+> issue entirely, since locally built apps are never quarantined.
+
+After launch, look for the **ram-head icon in your menu bar** — RAMble has no
+Dock icon and no window, so that icon is the whole interface. Reopen the
+guide any time from **menu bar → Welcome / Help**.
+
+Runs on Apple Silicon **and** Intel (universal binary), macOS 15+.
 
 ### Option 2 — Build from source (5 minutes, no Xcode needed)
 
-Requirements: macOS 15+, Apple Silicon, and the Swift toolchain from Apple's
-Command Line Tools.
+Requirements: macOS 15+ (Apple Silicon or Intel) and the Swift toolchain from
+Apple's Command Line Tools.
 
 ```sh
 # 1. Get the toolchain (skip if you already have git/swift):
@@ -108,7 +122,8 @@ screen):
 
 - **Show Overlay** — toggle the animation on/off
 - **Animation** — switch between Synapse, Plinko, Galaxy, Water Tank,
-  Motherboard, Factory
+  Motherboard, Factory, Rain
+- **Welcome / Help** — reopen the first-run guide
 - **Settings…** — the good stuff (below)
 - **Check for Updates…** — one-click update to the latest release
 - **Quit RAMble**
@@ -173,7 +188,9 @@ preferences and weigh a few KB.
 |---|---|
 | "I opened it and nothing happened" | That's almost the point — check the **menu bar** for the ram icon, then hide a window to see the desktop. |
 | Can't see the animation | Menu bar icon → make sure **Show Overlay** is checked; Settings → Displays → your monitor is enabled; try **Bring to front** to rule out wallpaper utilities that cover the desktop layer. |
-| macOS won't open the app | Right-click → **Open** → **Open**. Still stuck: `xattr -dr com.apple.quarantine /Applications/RAMble.app` |
+| **"RAMble is damaged and can't be opened"** | Nothing is damaged — it's the quarantine flag on an un-notarized app. Run `xattr -dr com.apple.quarantine /Applications/RAMble.app` and open it again. |
+| Double-clicked it and nothing happened | RAMble has no Dock icon or window by design. Check the **menu bar** for the ram icon. If your menu bar is full (or hidden by a notch), quit some menu-bar apps or use a manager like Bartender. First launch also shows a welcome window. |
+| Won't launch on an older Mac | RAMble needs **macOS 15+**. The binary is universal (Apple Silicon + Intel), but Sequoia is the floor. |
 | Feels heavy | Settings → Appearance: drop **Frame rate** to 30 and/or pull **Intensity** left. Debug builds are slow — always use the release build. |
 | LLM activity not detected | RAMble polls Ollama on `:11434` and OpenAI-compatible servers on `:1234`/`:8080`/`:8000`. Custom setup? Add your server's process name under Settings → Monitoring. |
 | Meters panel vanished | Settings → Monitoring → pick any corner — that resets its position. |

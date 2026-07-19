@@ -42,6 +42,10 @@ public final class SettingsStore: ObservableObject {
             applyLoginItem()
         }
     }
+    /// Whether the first-run welcome window has been shown.
+    @Published public var hasSeenWelcome: Bool {
+        didSet { defaults.set(hasSeenWelcome, forKey: "hasSeenWelcome") }
+    }
     /// Comma-separated user-defined process names to watch in addition to defaults.
     @Published public var customProcesses: String {
         didSet { defaults.set(customProcesses, forKey: "customProcesses") }
@@ -92,6 +96,7 @@ public final class SettingsStore: ObservableObject {
         hideDockIcon = defaults.object(forKey: "hideDockIcon") as? Bool ?? true
         startAtLogin = defaults.object(forKey: "startAtLogin") as? Bool ?? false
         customProcesses = defaults.string(forKey: "customProcesses") ?? ""
+        hasSeenWelcome = defaults.object(forKey: "hasSeenWelcome") as? Bool ?? false
         overlayOnTop = defaults.object(forKey: "overlayOnTop") as? Bool ?? false
         showMeters = defaults.object(forKey: "showMeters") as? Bool ?? false
         metersOpacity = defaults.object(forKey: "metersOpacity") as? Double ?? 0.9

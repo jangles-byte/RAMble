@@ -6,6 +6,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var stateEngine: StateEngine!
     private var overlayController: OverlayController!
     private var settingsController: SettingsWindowController!
+    private var welcomeController: WelcomeWindowController?
     private var statusItem: NSStatusItem!
     private var cancellables: Set<AnyCancellable> = []
 
@@ -19,6 +20,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsController = SettingsWindowController(settings: settings,
                                                       stateEngine: stateEngine)
         setUpStatusItem()
+
+        // RAMble has no Dock icon and no window, so a first launch with no
+        // feedback is indistinguishable from a failed one. Show the welcome
+        // once so people know it's running and where the controls are.
+        if !settings.hasSeenWelcome {
+            settings.hasSeenWelcome = true
+            showWelcome()
+        }
 
         settings.$customProcesses
             .removeDuplicates()
@@ -65,6 +74,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                                       keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
+        let welcomeItem = NSMenuItem(title: "Welcome / Help",
+                                     action: #selector(showWelcome), keyEquivalent: "")
+        welcomeItem.target = self
+        menu.addItem(welcomeItem)
         let updateItem = NSMenuItem(title: "Check for Updates…",
                                     action: #selector(checkForUpdates), keyEquivalent: "")
         updateItem.target = self
@@ -88,6 +101,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         settingsController.show()
+    }
+
+    @objc private func showWelcome() {
+        if welcomeController == nil {
+            welcomeController = WelcomeWindowController(onOpenSettings: { [weak self] in
+                self?.settingsController.show()
+            })
+        }
+        welcomeController?.show()
     }
 
     @objc private func checkForUpdates() {
