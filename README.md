@@ -265,4 +265,24 @@ maximum chaos, it's a light show and priced accordingly.
 - Verify any change with `swift run RAMbleSelfTest` (60+ checks, no Xcode
   required).
 
+## Community scenes
+
+The scene marketplace is GitHub itself — free, no accounts beyond GitHub,
+no domain:
+
+- **Browse scenes**: every community scene lives under the
+  [`ramble-scene` topic](https://github.com/topics/ramble-scene). Tag your
+  repo with `ramble-scene` and it appears there automatically.
+- **Share a scene**: publish a repo containing your plugin's `.swift` file,
+  its design philosophy (`docs/*-design.md` format), and a `--snapshot`
+  render or two. Then show it off in
+  [Discussions → Show and tell](https://github.com/jangles-byte/RAMble/discussions).
+- **Install a scene**: drop the `.swift` file into
+  `Sources/RAMbleKit/Plugins/`, add one `register` line in
+  `PluginRegistry` ([docs/PLUGIN_SDK.md](docs/PLUGIN_SDK.md) walks through
+  it), and run `./scripts/make-app.sh`.
+- **Get it built in**: the best community scenes can be PR'd into RAMble
+  itself — philosophy doc and renders required, Atelier strongly
+  recommended (see above).
+
 Built with Swift 6, SwiftUI, Metal, and Combine. PRs welcome.
