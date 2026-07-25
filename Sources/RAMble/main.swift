@@ -16,6 +16,8 @@ if let flagIndex = CommandLine.arguments.firstIndex(of: "--snapshot"),
         let parts = args[flagIndex + 4].lowercased().split(separator: "x")
         if parts.count == 2, let w = Int(parts[0]), let h = Int(parts[1]) { size = SIMD2(w, h) }
     }
+    var warmup = 180
+    if args.count > flagIndex + 5, let w = Int(args[flagIndex + 5]) { warmup = w }
     guard let device = MTLCreateSystemDefaultDevice(),
           let renderer = try? Renderer(device: device),
           let plugin = PluginRegistry.shared.makePlugin(named: pluginName) else {
@@ -27,7 +29,7 @@ if let flagIndex = CommandLine.arguments.firstIndex(of: "--snapshot"),
     state.inferenceRunning = true; state.tokensPerSecond = 55
     state.perCoreUsage = Array(repeating: 0.5, count: 10)
     guard let image = renderer.snapshot(plugin: plugin, theme: Themes.named(themeName),
-                                        state: state, sizePoints: size),
+                                        state: state, sizePoints: size, warmupFrames: warmup),
           let dst = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
     else { FileHandle.standardError.write(Data("snapshot: render failed\n".utf8)); exit(1) }
     try? dst.write(to: URL(fileURLWithPath: outPath))

@@ -53,9 +53,12 @@ public final class RainPlugin: AnimationPlugin {
     private var horizon: Float = 0        // smoothed back edge of the ground
     private var flash: Float = 0
     private var strikeCooldown: Float = 0
+    private var windKick: Float = 0       // surge gust, decays
+    private var loadEma: Float = 0
+    private var surgeArmed = true
 
     private let maxDrops = 1500
-    private let strikeThreshold: Float = 0.45
+    private let strikeThreshold: Float = 0.35
 
     public init() {}
 
@@ -108,9 +111,22 @@ public final class RainPlugin: AnimationPlugin {
         strikeCooldown = max(0, strikeCooldown - dt)
         for i in bolts.indices { bolts[i].life -= dt }
         bolts.removeAll { $0.life <= 0 }
+        // Surge response: a compute spike cracks lightning and slams a gust
+        // through the storm the moment it lands.
+        let load = max(state.cpuPercent, state.gpuPercent)
+        if surgeArmed, load - loadEma > 0.18 {
+            surgeArmed = false
+            strike()
+            windKick = 320
+        } else if load - loadEma < 0.08 {
+            surgeArmed = true
+        }
+        loadEma += (load - loadEma) * min(1, dt * 0.8)
+        windKick = max(0, windKick - dt * 260)
+
         if state.modelJustLoaded { strike() }
         else if state.stress > strikeThreshold, strikeCooldown <= 0 {
-            let p = (state.stress - strikeThreshold) * 2.2 * dt
+            let p = (state.stress - strikeThreshold) * 3.0 * dt
             if randomFloat(0...1) < p { strike(); strikeCooldown = randomFloat(0.7...2.4) }
         }
 
@@ -131,7 +147,7 @@ public final class RainPlugin: AnimationPlugin {
 
         // --- Wind: calm when idle, driving gusts as the bars climb ---
         let gust = 0.55 + 0.45 * sin(time * 0.5) + 0.3 * sin(time * 1.7 + 1.1)
-        let windAmp = (state.cpuPercent * 70 + state.stress * 240) * gust
+        let windAmp = (state.cpuPercent * 70 + state.stress * 240) * gust + windKick
 
         var survivors: [Drop] = []
         survivors.reserveCapacity(drops.count)
@@ -209,12 +225,22 @@ public final class RainPlugin: AnimationPlugin {
                                 size: max(width, bounds.y) * 0.95, glow: flash))
         }
 
+        // Faint dotted horizon anchors the receding ground plane.
+        var hc = theme.calmColor
+        hc.w = 0.05
+        let hDots = 72
+        for k in 0..<hDots {
+            let t = (Float(k) + 0.5) / Float(hDots)
+            out.append(Particle(position: SIMD2(worldMin.x + width * t, horizon),
+                                color: hc, size: 1.6, glow: 0.25))
+        }
+
         // Draw back-to-front so nearer, bigger elements sit on top.
         // Ripples first (they're flat on the ground), then splashes, drops.
         for rp in ripples.sorted(by: { $0.d > $1.d }) {
             let fade = 1 - rp.radius / rp.maxRadius
             var c = simd_mix(theme.calmColor, theme.warningColor, SIMD4(repeating: swap * 0.6))
-            c.w *= fade * 0.7 * dim(rp.d)
+            c.w *= fade * 0.85 * dim(rp.d)
             let squash = lerp(0.34, 0.12, rp.d)     // flatter toward the back
             let count = min(40, max(9, Int(rp.radius / 3)))
             for k in 0..<count {
@@ -222,7 +248,7 @@ public final class RainPlugin: AnimationPlugin {
                 let px = rp.center.x + cos(a) * rp.radius
                 let py = rp.center.y + sin(a) * rp.radius * squash
                 out.append(Particle(position: SIMD2(perspX(px, rp.d), py), color: c,
-                                    size: 1.3 * sizeScale(rp.d) * 0.7, glow: 0.3 + fade * 0.3))
+                                    size: 2.0 * sizeScale(rp.d), glow: 0.3 + fade * 0.3))
             }
         }
 
@@ -230,14 +256,14 @@ public final class RainPlugin: AnimationPlugin {
         for drop in sortedDrops {
             let s = sizeScale(drop.d)
             let ly = landingY(drop.d)
-            var c = simd_mix(theme.color(drop.colorIndex), theme.calmColor, SIMD4(repeating: 0.4))
+            var c = simd_mix(theme.color(drop.colorIndex), theme.calmColor, SIMD4(repeating: 0.15))
             c = simd_mix(c, theme.warningColor, SIMD4(repeating: swap * 0.5))
-            c.w *= 0.85 * dim(drop.d)
+            c.w *= 0.95 * dim(drop.d)
             let px = perspX(drop.position.x, drop.d)
             let vel = SIMD2<Float>(0, drop.vy)   // streak stretches along fall
             out.append(Particle(position: SIMD2(px, drop.position.y), velocity: vel,
-                                color: c, size: 1.4 * s * theme.particleScale,
-                                glow: 0.35 + flash * 0.6, shape: .streak))
+                                color: c, size: 2.4 * s * theme.particleScale,
+                                glow: 0.3 + 0.5 * (1 - drop.d) + flash * 0.6, shape: .streak))
             // Faint reflection just above the ground where it will land.
             if drop.position.y - ly < bounds.y * 0.14 {
                 var rc = c; rc.w *= 0.2
