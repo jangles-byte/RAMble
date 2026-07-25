@@ -39,7 +39,7 @@ and idles light enough to leave on all day.
 
 | | |
 |---|---|
-| **Synapse** ⭐ | The flagship. A neural artery crosses your screen through a living canopy of dendrites, silver at rest — color exists only while the machine computes. Every token your model generates enters at the left as a comet-tailed pulse and crosses the whole trunk, shedding cascades at each hub. This is what "the model is thinking" looks like. |
+| **Synapse** | A neural artery crosses your screen through a living canopy of dendrites, silver at rest — color exists only while the machine computes. Every token your model generates enters at the left as a comet-tailed pulse and crosses the whole trunk, shedding cascades at each hub. This is what "the model is thinking" looks like. |
 | **Rain** | A storm on a receding ground plane. Drops land big and bright at the front, small and dim toward the horizon, each throwing a splash crown and ripple. Load drives the downpour, wind slants it, and lightning strikes as the gauges climb. |
 | **Filigree** | A strange attractor as the shape of the machine's mind: one chaotic filament sculpture, deposited from thousands of faint points, that kneads itself faster the harder the system works. Tokens burn hot through the lace; loading a model re-forms it into a new sculpture. |
 | **Murmuration** | Hundreds of silver birds wheel as one organism. RAM grows the flock, stress frays it into nervous scatter, and each generated token ignites a colored leader streaking through. Hit swap and a red predator appears and hunts the flock open. |
@@ -235,7 +235,7 @@ preferences and weigh a few KB.
 | **"RAMble is damaged and can't be opened"** | Nothing is damaged — it's the quarantine flag on an un-notarized app. Run `xattr -dr com.apple.quarantine /Applications/RAMble.app` and open it again. |
 | Double-clicked it and nothing happened | RAMble has no Dock icon or window by design. Check the **menu bar** for the ram icon. If your menu bar is full (or hidden by a notch), quit some menu-bar apps or use a manager like Bartender. First launch also shows a welcome window. |
 | Won't launch on an older Mac | RAMble needs **macOS 15+**. The binary is universal (Apple Silicon + Intel), but Sequoia is the floor. |
-| Feels heavy | Settings → Appearance: drop **Frame rate** to 30 and/or pull **Intensity** left. Debug builds are slow — always use the release build. |
+| Feels heavy | Settings → Appearance: drop **Frame rate** to 30, pull **Resolution** down (below 50% goes pleasantly retro), and/or pull **Intensity** left. Debug builds are slow — always use the release build. |
 | LLM activity not detected | RAMble polls Ollama on `:11434` and OpenAI-compatible servers on `:1234`/`:8080`/`:8000`. Custom setup? Add your server's process name under Settings → Monitoring. |
 | Meters panel vanished | Settings → Monitoring → pick any corner — that resets its position. |
 
@@ -254,6 +254,13 @@ maximum chaos, it's a light show and priced accordingly.
   `SystemState` → stress engine → Metal renderer → plugins.
 - **[docs/PLUGIN_SDK.md](docs/PLUGIN_SDK.md)** — write your own animation
   in ~60 lines; see [Examples/PulseRingPlugin.swift](Examples/PulseRingPlugin.swift).
+- **Contributing a scene?** We strongly recommend designing it with
+  [Atelier](https://github.com/jangles-byte/atelier), the design-skill
+  package every current scene was built with: write the philosophy first
+  (see the `docs/*-design.md` files for the format), pick a verified
+  generative system, then render real frames with `--snapshot` and critique
+  them before opening a PR. Scenes that ship with a philosophy doc and
+  before/after renders get reviewed fastest.
 - **[docs/BUILDING.md](docs/BUILDING.md)** — targets, tests, packaging.
 - Verify any change with `swift run RAMbleSelfTest` (60+ checks, no Xcode
   required).

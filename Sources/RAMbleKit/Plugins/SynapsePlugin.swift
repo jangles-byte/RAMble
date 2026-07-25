@@ -1,7 +1,7 @@
 import Foundation
 import simd
 
-/// Synapse — the flagship, built on the "Arterial" design
+/// Synapse — built on the "Arterial" design
 /// (docs/synapse-design.md). A directional neural artery in three depth
 /// layers: a blazing trunk of hubs crossing the screen left to right, a
 /// dense canopy of dendrites around it, and a ghost web breathing in the

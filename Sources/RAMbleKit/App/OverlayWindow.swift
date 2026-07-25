@@ -147,7 +147,7 @@ final class OverlayController {
             overlay.renderer.globalAlpha = Float(settings.opacity)
             overlay.renderer.sceneScale = Float(settings.scale)
             if overlay.renderer.activePlugin?.name != plugin {
-                // Fall back to the flagship if a saved setting names a scene
+                // Fall back to Synapse if a saved setting names a scene
                 // that no longer exists (e.g. a removed legacy animation).
                 overlay.renderer.activePlugin = PluginRegistry.shared.makePlugin(named: plugin)
                     ?? PluginRegistry.shared.makePlugin(named: "Synapse")
