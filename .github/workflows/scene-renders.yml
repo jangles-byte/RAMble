@@ -1,0 +1,44 @@
+# Builds RAMble, runs the self-test, and renders every registered scene to
+# PNG — so contributors WITHOUT a Mac still get a full visual feedback loop:
+# push, wait a few minutes, download the scene-renders artifact, look, iterate.
+name: Build, self-test, and render every scene
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (release)
+        run: swift build -c release
+
+      - name: Self-test
+        run: .build/release/RAMbleSelfTest
+
+      - name: Render every scene (Glass + Cyberpunk)
+        run: |
+          mkdir -p renders
+          .build/release/RAMble --list-animations | while IFS= read -r scene; do
+            safe="${scene// /-}"
+            for theme in Glass Cyberpunk; do
+              .build/release/RAMble --snapshot "$scene" "$theme" \
+                "renders/raw-$safe-$theme.png" 1280x800 400
+              swift scripts/composite-snapshot.swift \
+                "renders/raw-$safe-$theme.png" "renders/$safe-$theme.png"
+              rm "renders/raw-$safe-$theme.png"
+            done
+          done
+          ls -la renders/
+
+      - name: Upload renders
+        uses: actions/upload-artifact@v4
+        with:
+          name: scene-renders
+          path: renders/
+          retention-days: 30

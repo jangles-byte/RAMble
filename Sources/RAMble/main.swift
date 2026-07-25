@@ -2,6 +2,13 @@ import AppKit
 import Metal
 import RAMbleKit
 
+// List mode: `RAMble --list-animations` prints every registered scene name
+// (one per line) and exits. Used by CI to render whatever a PR contains.
+if CommandLine.arguments.contains("--list-animations") {
+    PluginRegistry.shared.availableNames.forEach { print($0) }
+    exit(0)
+}
+
 // Snapshot mode: `RAMble --snapshot <Animation> <Theme> <out.png> [WxH]` renders
 // one still through the real HDR pipeline and exits. Headless — no window, no
 // screen-recording permission. Used for previews and README/marketing shots.

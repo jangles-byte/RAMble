@@ -284,5 +284,10 @@ no domain:
 - **Get it built in**: the best community scenes can be PR'd into RAMble
   itself — philosophy doc and renders required, Atelier strongly
   recommended (see above).
+- **No Mac? You can still contribute.** CI builds every push and PR on a
+  free macOS runner, runs the self-test, and renders *every registered
+  scene* (including yours) to PNGs — download the `scene-renders` artifact
+  from the Actions run, look, and iterate. Slower than local, but it's a
+  real feedback loop from any OS.
 
 Built with Swift 6, SwiftUI, Metal, and Combine. PRs welcome.
