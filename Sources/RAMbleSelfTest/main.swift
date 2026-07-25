@@ -134,7 +134,7 @@ do {
 
 print("Plugins")
 do {
-    let builtIn = ["Synapse", "Plinko", "Galaxy", "Water Tank", "Motherboard", "Factory", "Rain"]
+    let builtIn = ["Synapse", "Rain", "Filigree", "Murmuration", "Mycelium", "Coral", "Fireworks"]
     expect(Set(PluginRegistry.shared.availableNames).isSuperset(of: builtIn),
            "registry lists all built-in plugins")
     for name in builtIn {
@@ -230,50 +230,6 @@ do {
     expect(UpdateChecker.isNewer("1.10.0", than: "1.9.9"), "numeric compare, not lexical")
     expect(!UpdateChecker.isNewer("0.9", than: "1.0"), "older is not newer")
     expect(UpdateChecker.isNewer("2", than: "1.9.9"), "short version strings work")
-}
-
-// MARK: - World-box physics (screen edges trap escapees)
-
-print("World box")
-do {
-    let plinko = PlinkoPlugin()
-    plinko.prepare(bounds: SIMD2(1000, 800), theme: Themes.glass)
-    // Simulate scale 0.5: the world extends well below/around the scene box.
-    let wMin = SIMD2<Float>(-500, -400)
-    let wMax = SIMD2<Float>(1500, 1200)
-    plinko.worldChanged(worldMin: wMin, worldMax: wMax)
-    var busy = SystemState()
-    busy.ramPercent = 0.8
-    for _ in 0..<(60 * 20) { plinko.update(state: busy, deltaTime: 1.0 / 60.0) }
-    let positions = plinko.testBallPositions
-    expect(!positions.isEmpty, "plinko has live balls after 20s")
-    expect(positions.allSatisfy { $0.y >= wMin.y - 1 },
-           "no ball ever passes below the screen-bottom floor")
-    expect(positions.allSatisfy { $0.x >= wMin.x - 1 && $0.x <= wMax.x + 1 },
-           "no ball ever escapes the screen sides")
-    expect(positions.contains { $0.y < -10 },
-           "balls do fall out of the scaled scene box onto the real floor")
-
-    // Settled balls must despawn instead of piling up forever.
-    let calm = SystemState()
-    for _ in 0..<(60 * 30) { plinko.update(state: calm, deltaTime: 1.0 / 60.0) }
-    expect(plinko.testBallPositions.count < positions.count,
-           "settled balls fade away instead of piling up")
-
-    // Regression: under sustained stress, jitter used to keep floor balls
-    // from ever settling — the cap filled and spawning froze. The stream
-    // must keep flowing indefinitely.
-    var stressed = SystemState()
-    stressed.ramPercent = 0.85
-    stressed.memoryPressure = 0.7
-    stressed.stress = 0.8
-    for _ in 0..<(60 * 90) {
-        plinko.update(state: stressed, deltaTime: 1.0 / 60.0)
-    }
-    let finalPositions = plinko.testBallPositions
-    expect(finalPositions.count < 900, "population never pins at the hard cap")
-    expect(finalPositions.contains { $0.y > wMin.y + 100 },
-           "fresh balls are still falling after 90s of stress")
 }
 
 // MARK: - Process inspector

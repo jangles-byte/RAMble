@@ -27,8 +27,8 @@ import simd
     @Test func registryBuildsEveryBuiltInPlugin() {
         let names = PluginRegistry.shared.availableNames
         #expect(Set(names).isSuperset(of:
-            ["Plinko", "Galaxy", "Water Tank", "Motherboard", "Factory"]))
-        for name in ["Plinko", "Galaxy", "Water Tank", "Motherboard", "Factory"] {
+            ["Filigree", "Murmuration", "Mycelium", "Coral", "Fireworks"]))
+        for name in ["Filigree", "Murmuration", "Mycelium", "Coral", "Fireworks"] {
             let plugin = PluginRegistry.shared.makePlugin(named: name)
             #expect(plugin?.name == name)
         }
@@ -43,7 +43,7 @@ import simd
         extreme.modelJustLoaded = true
         extreme.perCoreUsage = Array(repeating: 1, count: 10)
 
-        for name in ["Plinko", "Galaxy", "Water Tank", "Motherboard", "Factory"] {
+        for name in ["Filigree", "Murmuration", "Mycelium", "Coral", "Fireworks"] {
             guard let plugin = PluginRegistry.shared.makePlugin(named: name) else {
                 Issue.record("missing plugin \(name)")
                 continue

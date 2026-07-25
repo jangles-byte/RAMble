@@ -80,7 +80,7 @@ Respect the active theme so your plugin works across all seven built-ins:
 2. Smooth raw signals with EMAs — state updates at 1 Hz; your visuals run at
    60+ FPS.
 3. Keep `update` under ~1 ms for a few thousand elements; use spatial
-   hashing if you need collisions (see `PlinkoPlugin`).
+   hashing if you need neighbor queries (see `MurmurationPlugin`).
 4. Survive extremes: the self-test drives every registered plugin with
    all-1.0 state for 300 frames. Run `swift run RAMbleSelfTest`.
 

@@ -49,12 +49,12 @@ public final class PluginRegistry {
 
     private init() {
         register(name: "Synapse") { SynapsePlugin() }
-        register(name: "Plinko") { PlinkoPlugin() }
-        register(name: "Galaxy") { GalaxyPlugin() }
-        register(name: "Water Tank") { WaterTankPlugin() }
-        register(name: "Motherboard") { MotherboardPlugin() }
-        register(name: "Factory") { FactoryPlugin() }
         register(name: "Rain") { RainPlugin() }
+        register(name: "Filigree") { FiligreePlugin() }
+        register(name: "Murmuration") { MurmurationPlugin() }
+        register(name: "Mycelium") { MyceliumPlugin() }
+        register(name: "Coral") { CoralPlugin() }
+        register(name: "Fireworks") { FireworksPlugin() }
     }
 
     public var availableNames: [String] { factories.map(\.name) }
