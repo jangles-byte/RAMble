@@ -33,11 +33,6 @@ and idles light enough to leave on all day.
   leaves your machine, no analytics, no accounts.
 - **Open** — MIT-spirited source, plugin SDK, ~zero dependencies.
 
-<p align="center">
-  <img src="assets/screenshots/synapse.png" alt="Synapse — the neural artery mid-inference, token pulses crossing the trunk" width="100%">
-  <br><em>Synapse mid-inference — every pulse of color is a token crossing the artery.</em>
-</p>
-
 ---
 
 ## The animations
