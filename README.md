@@ -177,6 +177,9 @@ never steal a click, a keystroke, or focus.
 - **Bring to front** — float the animation *over* all your windows instead
   (still click-through). Pair with the opacity slider to keep working
   through it.
+- **Charts only** — hide the animation entirely but keep the desktop
+  meters: RAMble as a pure glanceable dashboard. The Metal view pauses
+  completely, so this mode costs almost nothing.
 - **Intensity** — tortoise-to-hare slider. Left: sparse and calm even under
   load. Right: busy screen even at idle. System load layers on top either
   way. (Lower intensity also means less CPU spent.)

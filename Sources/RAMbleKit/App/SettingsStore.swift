@@ -20,6 +20,11 @@ public final class SettingsStore: ObservableObject {
         didSet { defaults.set(scale, forKey: "scale") }
     }
     /// Activity multiplier: 0.2 (slow drip) … 2.5 (busy screen).
+    /// Charts-only mode: hide the animation entirely but keep the desktop
+    /// meters. The Metal view pauses, so the animation costs nothing.
+    @Published public var chartsOnly: Bool {
+        didSet { defaults.set(chartsOnly, forKey: "chartsOnly") }
+    }
     /// Internal render resolution as a fraction of native (1.0 = full).
     /// GPU cost scales with the square-ish of this; 0.25 ≈ 6% of the pixels.
     @Published public var resolution: Double {
@@ -93,6 +98,7 @@ public final class SettingsStore: ObservableObject {
         themeName = defaults.string(forKey: "themeName") ?? "Glass"
         opacity = defaults.object(forKey: "opacity") as? Double ?? 0.85
         scale = defaults.object(forKey: "scale") as? Double ?? 1.0
+        chartsOnly = defaults.object(forKey: "chartsOnly") as? Bool ?? false
         resolution = defaults.object(forKey: "resolution") as? Double ?? 1.0
         intensity = defaults.object(forKey: "intensity") as? Double ?? 1.0
         fpsLimit = defaults.object(forKey: "fpsLimit") as? Int ?? 60

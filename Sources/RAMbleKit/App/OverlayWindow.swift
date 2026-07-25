@@ -111,7 +111,12 @@ final class OverlayController {
         for (id, overlay) in overlays {
             let enabled = settings.overlayEnabled &&
                 (settings.enabledDisplayIDs.isEmpty || settings.enabledDisplayIDs.contains(id))
-            if enabled {
+            if enabled, settings.chartsOnly {
+                // Charts only: the animation window hides and its Metal view
+                // pauses (zero cost); the meters panel below still shows.
+                overlay.window.orderOut(nil)
+                overlay.view.isPaused = true
+            } else if enabled {
                 overlay.window.orderFront(nil)
                 overlay.view.isPaused = false
             } else {

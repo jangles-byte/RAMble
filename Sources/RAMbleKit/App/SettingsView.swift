@@ -30,6 +30,17 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Toggle("Charts only (hide the animation, keep the meters)",
+                   isOn: $settings.chartsOnly)
+                .onChange(of: settings.chartsOnly) { _, on in
+                    // The whole point is the gauges — make sure they're on.
+                    if on { settings.showMeters = true }
+                }
+            if settings.chartsOnly {
+                Text("The animation is fully paused — zero GPU cost. The meters panel stays, and Monitoring settings still apply.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Picker("Animation", selection: $settings.animationName) {
                 ForEach(PluginRegistry.shared.availableNames, id: \.self) { Text($0) }
             }
