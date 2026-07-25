@@ -13,6 +13,12 @@
   <img src="https://img.shields.io/badge/Swift%206%20%2B%20Metal-no%20Electron-f05138" alt="Swift 6 + Metal">
 </p>
 
+<p align="center">
+  <img src="assets/demo.gif" alt="RAMble live on a desktop — the Murmuration flock storming across the screen while Ollama pins the GPU" width="100%">
+  <br><em>Live on a real desktop: Murmuration in a full storm while Ollama pins the GPU.
+  <a href="assets/demo.mp4">Watch the full one-minute demo (MP4)</a>.</em>
+</p>
+
 RAMble is a free, native macOS overlay that turns your system's inner life —
 RAM pressure, CPU, GPU, swap, and your local LLMs — into living, glowing
 animations on your desktop. When Ollama streams tokens, you *see* a neural
@@ -70,10 +76,14 @@ moment it happens: Rain cracks lightning and slams a gust, Synapse detonates
 hubs, Murmuration startles like a gunshot in the valley, Fireworks answers
 with an instant volley.
 
-The newest scenes (Filigree, Murmuration, Mycelium, Coral, Fireworks) were
-art-directed with **Atelier**, a design-skill package for Claude Code —
-philosophy-first direction, verified generative systems, and a critique loop
-that scores real renders. <!-- TODO: link the Atelier repo once published -->
+**This release is a major animation design overhaul, thanks to
+[Atelier](https://github.com/jangles-byte/atelier)** — a design-skill
+package for Claude Code (philosophy-first direction, verified generative
+systems, and a critique loop that scores real renders). Every scene was
+rebuilt or newly designed through it: Synapse from the ground up, and
+Filigree, Murmuration, Mycelium, Coral, and Fireworks born from its
+generative-motion systems. Each scene's design philosophy lives in
+[docs/](docs/).
 
 Seven themes (Glass, Cyberpunk, Minimal, Synthwave, Terminal, Dark, Light)
 restyle everything, and an **Intensity slider** runs the whole show from
