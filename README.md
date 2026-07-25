@@ -27,19 +27,53 @@ and idles light enough to leave on all day.
   leaves your machine, no analytics, no accounts.
 - **Open** — MIT-spirited source, plugin SDK, ~zero dependencies.
 
+<p align="center">
+  <img src="assets/screenshots/synapse.png" alt="Synapse — the neural artery mid-inference, token pulses crossing the trunk" width="100%">
+  <br><em>Synapse mid-inference — every pulse of color is a token crossing the artery.</em>
+</p>
+
 ---
 
 ## The animations
 
 | | |
 |---|---|
-| **Synapse** ⭐ | The flagship. A living neural graph — colored nodes joined by curved fibers, signal pulses racing along the edges and triggering cascade fires downstream. Idle, it has a resting heartbeat; run a local LLM and it storms. This is what "the model is thinking" looks like. |
-| **Plinko** | Glowing marbles (memory allocations) rain through a peg board. Pressure jams the board; swap spills red overflow; escapees bounce along your real screen bottom and fade away. |
-| **Galaxy** | 2,600 stars in wound spiral arms with nebula haze. Load speeds the spin; memory pressure drags orbits inward; heavy swap collapses the core into a black hole with an accretion ring. |
-| **Water Tank** | A glass reservoir. Water level = RAM. Pressure whips up the waves, CPU simmers bubbles from below, swap overflows the rim in red. |
-| **Motherboard** | Data packets route between CPU cores, RAM modules, GPU, and disk. Congestion backs traffic up along the traces; jammed packets buzz; swap opens red packet routes to disk. |
-| **Factory** | Conveyor belts, spinning gears (P-cores drive the big ones), machines that fall behind under pressure so crates pile up — and get rejected off the line when you hit swap. |
+| **Synapse** ⭐ | The flagship. A neural artery crosses your screen through a living canopy of dendrites, silver at rest — color exists only while the machine computes. Every token your model generates enters at the left as a comet-tailed pulse and crosses the whole trunk, shedding cascades at each hub. This is what "the model is thinking" looks like. |
 | **Rain** | A storm on a receding ground plane. Drops land big and bright at the front, small and dim toward the horizon, each throwing a splash crown and ripple. Load drives the downpour, wind slants it, and lightning strikes as the gauges climb. |
+| **Filigree** | A strange attractor as the shape of the machine's mind: one chaotic filament sculpture, deposited from thousands of faint points, that kneads itself faster the harder the system works. Tokens burn hot through the lace; loading a model re-forms it into a new sculpture. |
+| **Murmuration** | Hundreds of silver birds wheel as one organism. RAM grows the flock, stress frays it into nervous scatter, and each generated token ignites a colored leader streaking through. Hit swap and a red predator appears and hunts the flock open. |
+| **Mycelium** | A slime-mould colony forages your screen: thousands of blind agents grow living transport filaments, junction by junction. CPU speeds the foraging, stress starves the network thin, tokens feed it bursts of color, and loading a model re-seeds the organism. |
+| **Coral** | Computation as accretion. A closed ring grows by insertion into ruffled, brain-fold reefs — the shape on screen is the fossil record of your machine's work. The growing edge glows young, sustained load blooms folds on folds, and a model load wipes the reef like a tide. |
+| **Fireworks** | A night valley behind an invisible treeline. Calm gets one low lazy shell every little while; load raises the launch rate, the apex, and the burst size until sustained effort tips into a grand finale of stacked volleys. Every falling ember dies into the silhouette. |
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screenshots/rain.png" alt="Rain — lightning strike over the ground plane"><br><em>Rain — lightning cracks as the gauges climb</em></td>
+    <td width="50%"><img src="assets/screenshots/fireworks.png" alt="Fireworks — shells over the invisible treeline"><br><em>Fireworks — shells over the invisible treeline</em></td>
+  </tr>
+  <tr>
+    <td><img src="assets/screenshots/filigree.png" alt="Filigree — a Clifford attractor filament sculpture"><br><em>Filigree — the machine's mind as a chaotic sculpture</em></td>
+    <td><img src="assets/screenshots/mycelium.png" alt="Mycelium — slime-mould transport filaments"><br><em>Mycelium — living transport filaments, junction by junction</em></td>
+  </tr>
+  <tr>
+    <td><img src="assets/screenshots/murmuration.png" alt="Murmuration — flocks wheeling under mid stress"><br><em>Murmuration — the flock frays as pressure climbs</em></td>
+    <td><img src="assets/screenshots/coral.png" alt="Coral — a ruffled reef ring with a glowing young rim"><br><em>Coral — the machine's work, accreted into folds</em></td>
+  </tr>
+</table>
+
+*Every screenshot above is a real frame rendered by RAMble's own headless
+`--snapshot` mode — no compositing tricks, just the actual HDR pipeline.*
+
+**Every scene reacts to sudden change, not just steady load.** A compute
+spike — a build kicking off, a model loading — lands as an *event* the
+moment it happens: Rain cracks lightning and slams a gust, Synapse detonates
+hubs, Murmuration startles like a gunshot in the valley, Fireworks answers
+with an instant volley.
+
+The newest scenes (Filigree, Murmuration, Mycelium, Coral, Fireworks) were
+art-directed with **Atelier**, a design-skill package for Claude Code —
+philosophy-first direction, verified generative systems, and a critique loop
+that scores real renders. <!-- TODO: link the Atelier repo once published -->
 
 Seven themes (Glass, Cyberpunk, Minimal, Synthwave, Terminal, Dark, Light)
 restyle everything, and an **Intensity slider** runs the whole show from
@@ -121,8 +155,8 @@ Everything lives under the **ram-head menu bar icon** (top-right of your
 screen):
 
 - **Show Overlay** — toggle the animation on/off
-- **Animation** — switch between Synapse, Plinko, Galaxy, Water Tank,
-  Motherboard, Factory, Rain
+- **Animation** — switch between Synapse, Rain, Filigree, Murmuration,
+  Mycelium, Coral, Fireworks
 - **Welcome / Help** — reopen the first-run guide
 - **Settings…** — the good stuff (below)
 - **Check for Updates…** — one-click update to the latest release
@@ -144,6 +178,11 @@ never steal a click, a keystroke, or focus.
 - **Opacity / Scale** — how visible, how big. Scale shrinks the scene from
   the center; physics objects can tumble out of a shrunken scene and bounce
   along your real screen edges before fading away.
+- **Resolution** — internal render resolution, 100% down to an extreme 5%.
+  GPU cost scales with pixel count, so 25% renders ~6% of the pixels; below
+  50% the upscaling switches to crisp nearest-neighbor and the whole thing
+  goes deliberately retro — "Pixel mode." Pair with the 30 FPS limit for a
+  near-free overlay on battery.
 - **Animation / Theme / Frame rate** — pick your look; 30 FPS roughly halves
   RAMble's cost vs 60.
 
