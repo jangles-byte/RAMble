@@ -126,11 +126,31 @@ final class OverlayController {
                 ? .screenSaver
                 : NSWindow.Level(Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
             overlay.view.preferredFramesPerSecond = settings.fpsLimit
+
+            // Resolution slider: shrink the drawable, let the layer scale it
+            // up. Below half res, nearest-neighbor keeps the pixels crisp —
+            // deliberate retro, not blur.
+            let res = CGFloat(min(max(settings.resolution, 0.05), 1.0))
+            overlay.renderer.renderResolution = Float(res)
+            overlay.view.autoResizeDrawable = false
+            let pts = overlay.view.bounds.size
+            let bs = overlay.view.window?.backingScaleFactor ?? 2
+            let target = CGSize(width: max(pts.width * bs * res, 32),
+                                height: max(pts.height * bs * res, 32))
+            if abs(overlay.view.drawableSize.width - target.width) > 1 ||
+               abs(overlay.view.drawableSize.height - target.height) > 1 {
+                overlay.view.drawableSize = target
+            }
+            overlay.view.layer?.magnificationFilter = res < 0.5 ? .nearest : .linear
+
             overlay.renderer.theme = theme
             overlay.renderer.globalAlpha = Float(settings.opacity)
             overlay.renderer.sceneScale = Float(settings.scale)
             if overlay.renderer.activePlugin?.name != plugin {
+                // Fall back to the flagship if a saved setting names a scene
+                // that no longer exists (e.g. a removed legacy animation).
                 overlay.renderer.activePlugin = PluginRegistry.shared.makePlugin(named: plugin)
+                    ?? PluginRegistry.shared.makePlugin(named: "Synapse")
             }
             layoutMeters(overlay.meters, id: id, overlayLevel: overlay.window.level)
         }

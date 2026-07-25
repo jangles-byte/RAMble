@@ -76,6 +76,20 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
+            HStack {
+                Slider(value: $settings.resolution, in: 0.05...1.0) {
+                    Text("Resolution")
+                } minimumValueLabel: { Image(systemName: "square.grid.2x2") }
+                  maximumValueLabel: { Image(systemName: "square.grid.4x3.fill") }
+                Text("\(Int(settings.resolution * 100))%")
+                    .monospacedDigit().foregroundStyle(.secondary)
+                    .frame(width: 44, alignment: .trailing)
+            }
+            Text(settings.resolution < 0.5
+                 ? "Pixel mode — chunky retro rendering that barely sips the GPU."
+                 : "Internal render resolution. Lower = big GPU savings; below 50% the pixels go pleasantly retro.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Picker("Frame rate limit", selection: $settings.fpsLimit) {
                 Text("30 FPS").tag(30)
                 Text("60 FPS").tag(60)
@@ -86,6 +100,7 @@ struct SettingsView: View {
                 settings.opacity = 0.85
                 settings.scale = 1.0
                 settings.intensity = 1.0
+                settings.resolution = 1.0
                 settings.fpsLimit = 60
             }
         }

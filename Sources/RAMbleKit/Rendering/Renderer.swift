@@ -192,8 +192,14 @@ public final class Renderer: NSObject, MTKViewDelegate {
 
     // MARK: - MTKViewDelegate
 
+    /// Internal render resolution fraction (the Resolution slider). The
+    /// drawable shrinks; scene coordinates must not — so bounds divides
+    /// this back out.
+    public var renderResolution: Float = 1
+
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        let scale = view.window?.backingScaleFactor ?? 2
+        let scale = (view.window?.backingScaleFactor ?? 2)
+            * CGFloat(max(renderResolution, 0.01))
         bounds = SIMD2(Float(size.width / scale), Float(size.height / scale))
         accumTexture = nil  // rebuild offscreen textures at the new size
         activePlugin?.prepare(bounds: bounds, theme: theme)
