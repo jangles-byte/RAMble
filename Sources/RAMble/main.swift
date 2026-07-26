@@ -39,7 +39,7 @@ if let flagIndex = CommandLine.arguments.firstIndex(of: "--render-widget"),
         s.inferenceRunning = true; s.tokensPerSecond = 60
     }
     let png: Data? = MainActor.assumeIsolated {
-        let renderer = ImageRenderer(content: EngineBody(state: s, time: 1.7, showHint: true))
+        let renderer = ImageRenderer(content: EngineBody.preview(state: s, time: 1.7, showHint: true))
         renderer.scale = 2
         guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff) else { return nil }

@@ -11,10 +11,12 @@ struct EngineHUDView: View {
     @ObservedObject var settings: SettingsStore
     var onSelect: ((MetricKind) -> Void)?
 
+    @State private var motor = EngineMotor()
+
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            EngineBody(state: stateEngine.state,
-                       time: timeline.date.timeIntervalSinceReferenceDate,
+            EngineBody(motion: motor.tick(timeline.date.timeIntervalSinceReferenceDate,
+                                          stateEngine.state),
                        showHint: onSelect != nil)
         }
         .overlay(tapZones)
@@ -50,17 +52,117 @@ struct EngineHUDView: View {
     }
 }
 
-/// Pure function of (state, time) → the full panel. Also rendered headlessly
-/// by `RAMble --render-widget` for the design critique loop.
+/// Integrated, smoothed animation state. Rotations and piston strokes are
+/// phase-integrated (`angle += speed * dt`) rather than derived from
+/// absolute time, so a change in system load glides instead of teleporting
+/// the whole animation — the "snapping" failure mode of `t * speed`.
+struct EngineMotion {
+    var gpuAngle: CGFloat = 0.8
+    var diskAngle: CGFloat = 0.3
+    var pistonPhase: [CGFloat] = (0..<10).map { CGFloat($0) * 1.7 }
+    var bubblePhase: CGFloat = 0
+    var dropPhase: CGFloat = 0
+    var sparkPhase: CGFloat = 0
+    var wave: CGFloat = 0
+    var rattleT: CGFloat = 0
+
+    // Smoothed signals — levels glide between 1 Hz samples.
+    var cores: [CGFloat] = Array(repeating: 0, count: 10)
+    var coreCount = 8
+    var gpu: CGFloat = 0
+    var disk: CGFloat = 0
+    var stress: CGFloat = 0
+    var ram: CGFloat = 0
+    var wired: CGFloat = 0
+    var compressed: CGFloat = 0
+    var pressure: CGFloat = 0
+    var swap: CGFloat = 0
+    var tokens: CGFloat = 0      // 0…1, fades sparks in and out
+}
+
+/// Persistent frame-to-frame integrator for the Engine Room widget.
+final class EngineMotor {
+    private var m = EngineMotion()
+    private var last: TimeInterval?
+
+    func tick(_ now: TimeInterval, _ s: SystemState) -> EngineMotion {
+        let dt = CGFloat(min(max(now - (last ?? now), 0), 0.1))
+        last = now
+        func glide(_ a: inout CGFloat, _ target: CGFloat, _ rate: CGFloat) {
+            a += (target - a) * min(1, dt * rate)
+        }
+
+        // Smooth every signal so speeds and levels change gradually.
+        glide(&m.gpu, CGFloat(s.gpuPercent.clamped01), 3)
+        glide(&m.disk, CGFloat(s.diskPressure.clamped01), 3)
+        glide(&m.stress, CGFloat(s.stress.clamped01), 3)
+        glide(&m.ram, CGFloat(s.ramPercent.clamped01), 2)
+        glide(&m.wired, CGFloat(s.wiredPercent.clamped01), 2)
+        glide(&m.compressed, CGFloat(s.compressedPercent.clamped01), 2)
+        glide(&m.pressure, CGFloat(s.memoryPressure.clamped01), 2.5)
+        glide(&m.swap, CGFloat(s.swapPercent.clamped01), 2)
+        let tokTarget: CGFloat = s.inferenceRunning
+            ? CGFloat(min(s.tokensPerSecond / 120, 1)) : 0
+        glide(&m.tokens, tokTarget, 2.5)
+        let usage = s.perCoreUsage
+        m.coreCount = usage.isEmpty ? 8 : min(usage.count, 10)
+        for i in 0..<10 {
+            let target = i < usage.count
+                ? CGFloat(usage[i].clamped01) : CGFloat(s.cpuPercent.clamped01)
+            glide(&m.cores[i], target, 4)
+        }
+
+        // Integrate: continuous rotation whatever the load does.
+        m.gpuAngle += (0.4 + m.gpu * 7) * dt
+        m.diskAngle += (0.3 + m.disk * 9) * dt
+        for i in 0..<10 { m.pistonPhase[i] += (0.6 + m.cores[i] * 11) * dt }
+        m.bubblePhase += (0.25 + m.pressure * 0.5) * dt
+        m.dropPhase += 0.55 * dt
+        m.sparkPhase += 1.3 * dt
+        m.wave += 2.1 * dt
+        m.rattleT = CGFloat(now)
+        return m
+    }
+}
+
+/// Pure function of a motion snapshot → the full panel. Also rendered
+/// headlessly by `RAMble --render-widget` for the design critique loop.
 public struct EngineBody: View {
-    let state: SystemState
-    let time: TimeInterval
+    let motion: EngineMotion
     var showHint = false
 
-    public init(state: SystemState, time: TimeInterval, showHint: Bool = false) {
-        self.state = state
-        self.time = time
+    init(motion: EngineMotion, showHint: Bool = false) {
+        self.motion = motion
         self.showHint = showHint
+    }
+
+    /// Headless preview at a canned state (used by --render-widget).
+    public static func preview(state: SystemState, time: TimeInterval,
+                               showHint: Bool = false) -> EngineBody {
+        var m = EngineMotion()
+        let t = CGFloat(time)
+        m.gpu = CGFloat(state.gpuPercent.clamped01)
+        m.disk = CGFloat(state.diskPressure.clamped01)
+        m.stress = CGFloat(state.stress.clamped01)
+        m.ram = CGFloat(state.ramPercent.clamped01)
+        m.wired = CGFloat(state.wiredPercent.clamped01)
+        m.compressed = CGFloat(state.compressedPercent.clamped01)
+        m.pressure = CGFloat(state.memoryPressure.clamped01)
+        m.swap = CGFloat(state.swapPercent.clamped01)
+        m.tokens = state.inferenceRunning ? CGFloat(min(state.tokensPerSecond / 120, 1)) : 0
+        m.coreCount = state.perCoreUsage.isEmpty ? 8 : min(state.perCoreUsage.count, 10)
+        for i in 0..<10 where i < state.perCoreUsage.count {
+            m.cores[i] = CGFloat(state.perCoreUsage[i].clamped01)
+        }
+        m.gpuAngle = t * (0.4 + m.gpu * 7)
+        m.diskAngle = t * (0.3 + m.disk * 9)
+        for i in 0..<10 { m.pistonPhase[i] = t * (0.6 + m.cores[i] * 11) + CGFloat(i) * 1.7 }
+        m.bubblePhase = t * 0.4
+        m.dropPhase = t * 0.55
+        m.sparkPhase = t * 1.3
+        m.wave = t * 2.1
+        m.rattleT = t
+        return EngineBody(motion: m, showHint: showHint)
     }
 
     public var body: some View {
@@ -87,9 +189,8 @@ public struct EngineBody: View {
     // MARK: - Drawing
 
     private func draw(_ ctx: inout GraphicsContext, _ size: CGSize) {
-        let s = state
-        let t = CGFloat(time)
-        let stress = CGFloat(s.stress.clamped01)
+        let m = motion
+        let stress = m.stress
 
         // The press: a heavy slab that descends with stress and crushes the
         // room below it. Everything else lives in `room`, which shrinks.
@@ -97,40 +198,36 @@ public struct EngineBody: View {
         let pressTravel: CGFloat = 30
         let pressY = 2 + stress * pressTravel
         let rattle: CGFloat = stress > 0.65
-            ? sin(t * 47) * (stress - 0.65) * 6 : 0
+            ? sin(m.rattleT * 47) * (stress - 0.65) * 6 : 0
 
-        var room = CGRect(x: rattle, y: pressY + pressH + 4,
+        let room = CGRect(x: rattle, y: pressY + pressH + 4,
                           width: size.width,
                           height: size.height - pressY - pressH - 6)
 
-        drawPress(&ctx, size: size, y: pressY, h: pressH, stress: stress, t: t)
+        drawPress(&ctx, size: size, y: pressY, h: pressH, stress: stress)
 
-        // Unit-coordinate helper: everything is placed in room space, so the
-        // descending press genuinely compresses the whole diagram.
         func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
             CGRect(x: room.minX + x * room.width, y: room.minY + y * room.height,
                    width: w * room.width, height: h * room.height)
         }
 
-        drawReservoir(&ctx, rect(0.02, 0.00, 0.42, 0.60), t: t)
+        drawReservoir(&ctx, rect(0.02, 0.00, 0.42, 0.60))
         drawSump(&ctx, rect(0.02, 0.76, 0.42, 0.24),
-                 pipeFrom: rect(0.02, 0.00, 0.42, 0.60), t: t)
-        drawPistons(&ctx, rect(0.54, 0.00, 0.44, 0.26), t: t)
-        drawTurbine(&ctx, rect(0.54, 0.32, 0.44, 0.36), t: t)
-        drawPlatter(&ctx, rect(0.58, 0.76, 0.36, 0.24), t: t)
+                 pipeFrom: rect(0.02, 0.00, 0.42, 0.60))
+        drawPistons(&ctx, rect(0.54, 0.00, 0.44, 0.26))
+        drawTurbine(&ctx, rect(0.54, 0.32, 0.44, 0.36))
+        drawPlatter(&ctx, rect(0.58, 0.76, 0.36, 0.24))
     }
 
     private func drawPress(_ ctx: inout GraphicsContext, size: CGSize,
-                           y: CGFloat, h: CGFloat, stress: CGFloat, t: CGFloat) {
-        // Rods from the ceiling.
+                           y: CGFloat, h: CGFloat, stress: CGFloat) {
         let rodColor = Color.white.opacity(0.22)
         for rx in [size.width * 0.25, size.width * 0.75] {
             ctx.fill(Path(CGRect(x: rx - 1.5, y: 0, width: 3, height: y + 2)),
                      with: .color(rodColor))
         }
-        // The slab, warming with stress.
         let slab = CGRect(x: 4, y: y, width: size.width - 8, height: h)
-        let c = severity(Float(stress))
+        let c = severity(stress)
         var slabCtx = ctx
         if stress > 0.4 {
             slabCtx.addFilter(.shadow(color: c.opacity(0.7), radius: 4 + stress * 5))
@@ -145,24 +242,17 @@ public struct EngineBody: View {
               opacity: 0.55 + stress * 0.4)
     }
 
-    private func drawReservoir(_ ctx: inout GraphicsContext, _ r: CGRect, t: CGFloat) {
-        let s = state
-        let pressure = CGFloat(s.memoryPressure.clamped01)
-        let wired = CGFloat(s.wiredPercent.clamped01)
-        let compressed = CGFloat(s.compressedPercent.clamped01)
-        let ram = CGFloat(s.ramPercent.clamped01)
-        let liquid = max(ram - wired - compressed, 0)
+    private func drawReservoir(_ ctx: inout GraphicsContext, _ r: CGRect) {
+        let m = motion
+        let liquid = max(m.ram - m.wired - m.compressed, 0)
 
-        // Layers rise from the floor of the vessel.
         let floorY = r.maxY
-        let wiredH = wired * r.height
-        let compH = compressed * r.height
+        let wiredH = m.wired * r.height
+        let compH = m.compressed * r.height
         let liquidH = liquid * r.height
 
-        // Bedrock (wired): solid.
         ctx.fill(Path(CGRect(x: r.minX, y: floorY - wiredH, width: r.width, height: wiredH)),
                  with: .color(Color(white: 0.45).opacity(0.55)))
-        // Sediment (compressed): dense speckle.
         let compRect = CGRect(x: r.minX, y: floorY - wiredH - compH,
                               width: r.width, height: compH)
         ctx.fill(Path(compRect), with: .color(Color(white: 0.7).opacity(0.28)))
@@ -174,27 +264,25 @@ public struct EngineBody: View {
                          with: .color(.white.opacity(0.35)))
             }
         }
-        // Liquid (app memory): live surface, tinted by pressure.
         let liquidTop = floorY - wiredH - compH - liquidH
-        let tint = blend(Color(red: 0.55, green: 0.75, blue: 0.9), severity(Float(pressure)),
-                         CGFloat(pressure) * 0.8)
+        let tint = blend(Color(red: 0.55, green: 0.75, blue: 0.9), severity(m.pressure),
+                         m.pressure * 0.8)
         var surface = Path()
         surface.move(to: CGPoint(x: r.minX, y: floorY - wiredH - compH))
-        surface.addLine(to: CGPoint(x: r.minX, y: liquidTop + sin(t * 2.1) * 1.6))
+        surface.addLine(to: CGPoint(x: r.minX, y: liquidTop + sin(m.wave) * 1.6))
         let steps = 8
         for i in 1...steps {
             let x = r.minX + CGFloat(i) / CGFloat(steps) * r.width
-            let y = liquidTop + sin(t * 2.1 + CGFloat(i) * 0.9) * 1.6
+            let y = liquidTop + sin(m.wave + CGFloat(i) * 0.9) * 1.6
             surface.addLine(to: CGPoint(x: x, y: y))
         }
         surface.addLine(to: CGPoint(x: r.maxX, y: floorY - wiredH - compH))
         surface.closeSubpath()
         ctx.fill(surface, with: .color(tint.opacity(0.35)))
 
-        // Pressure bubbles rise through the liquid.
-        if pressure > 0.35, liquidH > 8 {
+        if m.pressure > 0.35, liquidH > 8 {
             for i in 0..<4 {
-                let u = (t * (0.25 + pressure * 0.5) + CGFloat(i) * 0.27)
+                let u = (m.bubblePhase + CGFloat(i) * 0.27)
                     .truncatingRemainder(dividingBy: 1)
                 let bx = r.minX + (0.2 + CGFloat((i * 53) % 60) / 100) * r.width
                 let by = (floorY - wiredH - compH) - u * liquidH
@@ -203,20 +291,17 @@ public struct EngineBody: View {
             }
         }
 
-        // Glass, warming with pressure.
         ctx.stroke(Path(roundedRect: r, cornerRadius: 3),
                    with: .color(blend(Color.white.opacity(0.35),
-                                      severity(Float(pressure)), pressure * 0.7)),
+                                      severity(m.pressure), m.pressure * 0.7)),
                    lineWidth: 1)
         label(&ctx, "RAM", at: CGPoint(x: r.midX, y: r.minY + 7), anchor: .center)
     }
 
-    private func drawSump(_ ctx: inout GraphicsContext, _ r: CGRect,
-                          pipeFrom vessel: CGRect, t: CGFloat) {
-        let swap = CGFloat(state.swapPercent.clamped01)
+    private func drawSump(_ ctx: inout GraphicsContext, _ r: CGRect, pipeFrom vessel: CGRect) {
+        let m = motion
         let warning = Color(red: 1.0, green: 0.32, blue: 0.28)
 
-        // Overflow pipe: vessel wall → down into the sump.
         let px = vessel.maxX - 4
         var pipe = Path()
         pipe.move(to: CGPoint(x: px, y: vessel.maxY - 2))
@@ -224,46 +309,40 @@ public struct EngineBody: View {
         pipe.addLine(to: CGPoint(x: r.midX, y: r.minY - 2))
         ctx.stroke(pipe, with: .color(.white.opacity(0.25)), lineWidth: 2)
 
-        // Drops flow while swap is in play.
-        if swap > 0.02 {
+        if m.swap > 0.02 {
             for i in 0..<3 {
-                let u = (t * 0.55 + CGFloat(i) / 3).truncatingRemainder(dividingBy: 1)
+                let u = (m.dropPhase + CGFloat(i) / 3).truncatingRemainder(dividingBy: 1)
                 let dy = (vessel.maxY - 2) + u * (r.minY - vessel.maxY + 2)
                 ctx.fill(Path(ellipseIn: CGRect(x: px - 1.5, y: dy, width: 3, height: 3.6)),
                          with: .color(warning.opacity(0.85)))
             }
         }
 
-        // The sump itself: the one standing red in the room.
-        let level = swap * (r.height - 3)
+        let level = m.swap * (r.height - 3)
         ctx.fill(Path(CGRect(x: r.minX, y: r.maxY - level, width: r.width, height: level)),
-                 with: .color(warning.opacity(0.30 + swap * 0.45)))
+                 with: .color(warning.opacity(0.30 + m.swap * 0.45)))
         ctx.stroke(Path(roundedRect: r, cornerRadius: 3),
-                   with: .color(swap > 0.02 ? warning.opacity(0.5) : .white.opacity(0.30)),
+                   with: .color(m.swap > 0.02 ? warning.opacity(0.5) : .white.opacity(0.30)),
                    lineWidth: 1)
         label(&ctx, "SWAP", at: CGPoint(x: r.midX, y: r.minY - 6), anchor: .center)
     }
 
-    private func drawPistons(_ ctx: inout GraphicsContext, _ r: CGRect, t: CGFloat) {
-        let cores = state.perCoreUsage.isEmpty
-            ? [Float](repeating: state.cpuPercent, count: 8)
-            : state.perCoreUsage
-        let n = min(cores.count, 10)
+    private func drawPistons(_ ctx: inout GraphicsContext, _ r: CGRect) {
+        let m = motion
+        let n = m.coreCount
         let gap: CGFloat = 2.5
         let w = (r.width - gap * CGFloat(n - 1)) / CGFloat(n)
 
         for i in 0..<n {
-            let usage = CGFloat(cores[i].clamped01)
+            let usage = m.cores[i]
             let x = r.minX + CGFloat(i) * (w + gap)
             let cyl = CGRect(x: x, y: r.minY, width: w, height: r.height)
             ctx.stroke(Path(roundedRect: cyl, cornerRadius: 1.5),
                        with: .color(.white.opacity(0.22)), lineWidth: 0.8)
-            // The head pumps at the core's true pace; idle cores rest low.
-            let speed = 0.6 + usage * 11
-            let phase = (sin(t * speed + CGFloat(i) * 1.7) + 1) / 2
+            let phase = (sin(m.pistonPhase[i]) + 1) / 2
             let travel = (r.height - 7) * (0.25 + usage * 0.75)
             let headY = cyl.maxY - 5 - phase * travel
-            let c = severity(Float(usage))
+            let c = severity(usage)
             var headCtx = ctx
             if usage > 0.55 { headCtx.addFilter(.shadow(color: c.opacity(0.8), radius: 2.5)) }
             headCtx.fill(Path(roundedRect: CGRect(x: x + 1, y: headY, width: w - 2, height: 4),
@@ -273,21 +352,19 @@ public struct EngineBody: View {
         label(&ctx, "CPU", at: CGPoint(x: r.midX, y: r.maxY + 6), anchor: .center)
     }
 
-    private func drawTurbine(_ ctx: inout GraphicsContext, _ r: CGRect, t: CGFloat) {
-        let gpu = CGFloat(state.gpuPercent.clamped01)
+    private func drawTurbine(_ ctx: inout GraphicsContext, _ r: CGRect) {
+        let m = motion
         let center = CGPoint(x: r.midX, y: r.midY)
         let radius = min(r.width, r.height) * 0.34
-        let c = severity(Float(gpu))
-        let spin = t * (0.4 + gpu * 7)
+        let c = severity(m.gpu)
 
         var hub = ctx
-        if gpu > 0.4 { hub.addFilter(.shadow(color: c.opacity(0.8), radius: 3 + gpu * 5)) }
+        if m.gpu > 0.4 { hub.addFilter(.shadow(color: c.opacity(0.8), radius: 3 + m.gpu * 5)) }
         hub.stroke(Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius,
                                           width: radius * 2, height: radius * 2)),
                    with: .color(.white.opacity(0.3)), lineWidth: 1)
-        // Five blades.
         for b in 0..<5 {
-            let a = spin + CGFloat(b) / 5 * 2 * .pi
+            let a = m.gpuAngle + CGFloat(b) / 5 * 2 * .pi
             var blade = Path()
             blade.move(to: center)
             blade.addLine(to: CGPoint(x: center.x + cos(a) * radius * 0.9,
@@ -295,45 +372,48 @@ public struct EngineBody: View {
             blade.addLine(to: CGPoint(x: center.x + cos(a + 0.5) * radius * 0.55,
                                       y: center.y + sin(a + 0.5) * radius * 0.55))
             blade.closeSubpath()
-            hub.fill(blade, with: .color(blend(Color(white: 0.75), c, gpu).opacity(0.25 + gpu * 0.55)))
+            hub.fill(blade, with: .color(blend(Color(white: 0.75), c, m.gpu)
+                        .opacity(0.25 + m.gpu * 0.55)))
         }
         ctx.fill(Path(ellipseIn: CGRect(x: center.x - 2, y: center.y - 2, width: 4, height: 4)),
                  with: .color(.white.opacity(0.6)))
 
-        // Token sparks fly off the rim while a model streams.
-        if state.inferenceRunning {
-            let k = max(Int(min(state.tokensPerSecond / 120, 1) * 6), 2)
+        // Token sparks fade in with token rate — fixed population, so the
+        // count never pops; only brightness changes.
+        if m.tokens > 0.02 {
+            let k = 6
             for i in 0..<k {
-                let u = (t * 1.3 + CGFloat(i) / CGFloat(k)).truncatingRemainder(dividingBy: 1)
-                let a = spin * 0.7 + CGFloat(i) / CGFloat(k) * 2 * .pi
+                let u = (m.sparkPhase + CGFloat(i) / CGFloat(k))
+                    .truncatingRemainder(dividingBy: 1)
+                let a = m.gpuAngle * 0.7 + CGFloat(i) / CGFloat(k) * 2 * .pi
                 let d = radius + u * 16
                 let p = CGPoint(x: center.x + cos(a) * d, y: center.y + sin(a) * d)
                 ctx.fill(Path(ellipseIn: CGRect(x: p.x - 1.2, y: p.y - 1.2,
                                                 width: 2.4, height: 2.4)),
-                         with: .color(Color.cyan.opacity(Double((1 - u) * 0.9))))
+                         with: .color(Color.cyan.opacity(
+                            Double((1 - u) * (0.25 + m.tokens * 0.65)))))
             }
         }
         label(&ctx, "GPU", at: CGPoint(x: r.midX, y: r.maxY + 1), anchor: .center)
     }
 
-    private func drawPlatter(_ ctx: inout GraphicsContext, _ r: CGRect, t: CGFloat) {
-        let disk = CGFloat(state.diskPressure.clamped01)
+    private func drawPlatter(_ ctx: inout GraphicsContext, _ r: CGRect) {
+        let m = motion
         let center = CGPoint(x: r.midX, y: r.midY)
         let radius = min(r.width, r.height) * 0.36
-        let spin = t * (0.3 + disk * 9)
 
         ctx.stroke(Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius,
                                           width: radius * 2, height: radius * 2)),
                    with: .color(.white.opacity(0.28)), lineWidth: 1)
         for k in 0..<3 {
-            let a = spin + CGFloat(k) / 3 * 2 * .pi
+            let a = m.diskAngle + CGFloat(k) / 3 * 2 * .pi
             var tick = Path()
             tick.move(to: CGPoint(x: center.x + cos(a) * radius * 0.35,
                                   y: center.y + sin(a) * radius * 0.35))
             tick.addLine(to: CGPoint(x: center.x + cos(a) * radius * 0.85,
                                      y: center.y + sin(a) * radius * 0.85))
-            ctx.stroke(tick, with: .color(severity(Float(disk))
-                        .opacity(0.35 + disk * 0.55)), lineWidth: 1.2)
+            ctx.stroke(tick, with: .color(severity(m.disk)
+                        .opacity(0.35 + m.disk * 0.55)), lineWidth: 1.2)
         }
         label(&ctx, "DISK", at: CGPoint(x: r.midX, y: r.maxY + 1), anchor: .center)
     }
@@ -347,8 +427,7 @@ public struct EngineBody: View {
                  at: p, anchor: anchor)
     }
 
-    /// Green → yellow → red, same ramp as the Bars style.
-    private func severity(_ v: Float) -> Color {
+    private func severity(_ v: CGFloat) -> Color {
         switch v {
         case ..<0.5: return Color(red: 0.35, green: 0.85, blue: 0.45)
         case ..<0.75: return Color(red: 0.95, green: 0.75, blue: 0.25)
