@@ -197,9 +197,16 @@ never steal a click, a keystroke, or focus.
 **Displays** — choose which monitors show the overlay.
 
 **Monitoring**
-- **Desktop meters** — a compact, draggable panel of live bars (RAM,
+- **Desktop meters** — a compact, draggable panel of live gauges (RAM,
   pressure, swap, CPU, GPU, disk, stress, tokens/sec). Click and hold to
   drag it anywhere; it can't be lost off-screen; picking a corner resets it.
+- **Meters style** — **Bars** (classic labeled meters) or **Engine Room**:
+  a living cutaway of the machine — RAM fills a glass reservoir (wired
+  bedrock, compressed sediment, liquid that rises), overflow drips into a
+  red swap sump, one piston pumps per CPU core, the GPU turbine spins and
+  throws cyan token sparks while a model streams — and as stress climbs, a
+  press descends and visibly crushes the whole room. Click any part for
+  its detail window, same as the bars.
 - **Watched processes** — add your own process names (comma-separated) to
   the AI watch list.
 - **Live state** — the raw numbers, if you want to peek behind the curtain.

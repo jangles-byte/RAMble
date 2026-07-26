@@ -65,6 +65,11 @@ public final class SettingsStore: ObservableObject {
         didSet { defaults.set(overlayOnTop, forKey: "overlayOnTop") }
     }
     /// Show the meters panel on the desktop overlay.
+    /// Meters widget style: "bars" (labeled meters) or "engine" (the
+    /// Engine Room cutaway — docs/engine-widget-design.md).
+    @Published public var metersStyle: String {
+        didSet { defaults.set(metersStyle, forKey: "metersStyle") }
+    }
     @Published public var showMeters: Bool {
         didSet { defaults.set(showMeters, forKey: "showMeters") }
     }
@@ -110,6 +115,7 @@ public final class SettingsStore: ObservableObject {
         customProcesses = defaults.string(forKey: "customProcesses") ?? ""
         hasSeenWelcome = defaults.object(forKey: "hasSeenWelcome") as? Bool ?? false
         overlayOnTop = defaults.object(forKey: "overlayOnTop") as? Bool ?? false
+        metersStyle = defaults.string(forKey: "metersStyle") ?? "bars"
         showMeters = defaults.object(forKey: "showMeters") as? Bool ?? false
         metersOpacity = defaults.object(forKey: "metersOpacity") as? Double ?? 0.9
         metersCorner = MeterCorner(rawValue:

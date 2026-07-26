@@ -151,6 +151,17 @@ struct SettingsView: View {
         Form {
             Section("Desktop meters") {
                 Toggle("Show meters on desktop", isOn: $settings.showMeters)
+                Picker("Style", selection: $settings.metersStyle) {
+                    Text("Bars").tag("bars")
+                    Text("Engine Room").tag("engine")
+                }
+                .pickerStyle(.segmented)
+                .disabled(!settings.showMeters)
+                if settings.metersStyle == "engine" {
+                    Text("A living cutaway of the machine: RAM fills, overflow drips into swap, one piston per core, the GPU turbine throws token sparks — and stress crushes the whole room.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Picker("Position", selection: $settings.metersCorner) {
                     ForEach(MeterCorner.allCases) { Text($0.rawValue).tag($0) }
                 }
